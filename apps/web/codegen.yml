@@ -1,0 +1,14 @@
+schema: ${NEXT_PUBLIC_API_URL}/api/graphql
+documents: src/**/*.graphql
+generates:
+  src/gql/:
+    preset: client
+    plugins:
+      - typescript
+      - typescript-operations
+      - typescript-react-apollo
+    config:
+      withHooks: true
+      withComponent: false
+      withHOC: false
+

@@ -1,0 +1,58 @@
+# Elixir
+/_build
+/cover
+/deps
+apps/api/_build
+apps/api/deps
+apps/api/.fetch
+erl_crash.dump
+*.ez
+*.beam
+*.plt
+
+# Phoenix
+/apps/api/priv/static/
+/apps/api/priv/cert_dev_key.pem
+/apps/api/priv/repo/migrations/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js
+/apps/web/.next/
+/apps/web/out/
+/apps/web/.vercel
+
+# Environment variables
+.env
+.env.local
+.env*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+
