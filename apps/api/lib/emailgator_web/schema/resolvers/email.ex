@@ -1,5 +1,6 @@
 defmodule EmailgatorWeb.Schema.Resolvers.Email do
-  alias Emailgator.{Emails, Jobs.Unsubscribe}
+  alias Emailgator.{Emails, Jobs.Unsubscribe, Accounts}
+  import Ecto.Query
 
   def list_by_category(_parent, %{category_id: category_id}, %{context: %{current_user: user}})
       when not is_nil(user) do
@@ -42,6 +43,25 @@ defmodule EmailgatorWeb.Schema.Resolvers.Email do
   end
 
   def bulk_unsubscribe(_parent, _args, _context) do
+    {:error, "Not authenticated"}
+  end
+
+  def get_email(_parent, %{id: email_id}, %{context: %{current_user: %{id: user_id}}}) do
+    # Get email with preloaded account and category to check ownership
+    query =
+      from(e in Emails.Email,
+        join: a in assoc(e, :account),
+        where: e.id == ^email_id and a.user_id == ^user_id,
+        preload: [:account, :category]
+      )
+
+    case Emailgator.Repo.one(query) do
+      nil -> {:error, "Email not found"}
+      email -> {:ok, email}
+    end
+  end
+
+  def get_email(_parent, _args, _context) do
     {:error, "Not authenticated"}
   end
 end

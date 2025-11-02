@@ -29,6 +29,16 @@ defmodule EmailgatorWeb.Schema do
       arg(:category_id, non_null(:id))
       resolve(&EmailgatorWeb.Schema.Resolvers.Email.list_by_category/3)
     end
+
+    field :polling_status, :boolean do
+      arg(:account_id, :id)
+      resolve(&EmailgatorWeb.Schema.Resolvers.Account.polling_status/3)
+    end
+
+    field :email, :email do
+      arg(:id, non_null(:id))
+      resolve(&EmailgatorWeb.Schema.Resolvers.Email.get_email/3)
+    end
   end
 
   mutation do

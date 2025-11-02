@@ -1,11 +1,13 @@
 'use client'
 
 import { useQuery, useMutation } from '@apollo/client'
-import { GetCategoryEmailsDocument, DeleteEmailsDocument } from '@/gql'
+import { GetCategoryEmailsDocument, DeleteEmailsDocument, UnsubscribeEmailsDocument } from '@/gql'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ProtectedRoute } from '@/lib/auth'
+import emailgatorLogo from '@/images/emailgator-logo.png'
 
 function CategoryDetailPageContent() {
   const params = useParams()
@@ -23,6 +25,25 @@ function CategoryDetailPageContent() {
       refetch()
     },
   })
+
+  const [unsubscribeEmails, { loading: unsubscribeLoading }] = useMutation(UnsubscribeEmailsDocument, {
+    onCompleted: () => {
+      setSelectedEmails([])
+      refetch()
+    },
+  })
+
+  const handleBulkUnsubscribe = async () => {
+    if (selectedEmails.length === 0) return
+
+    try {
+      await unsubscribeEmails({
+        variables: { emailIds: selectedEmails },
+      })
+    } catch (error) {
+      console.error('Failed to unsubscribe:', error)
+    }
+  }
 
   if (loading) {
     return (
@@ -97,8 +118,15 @@ function CategoryDetailPageContent() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-2xl font-bold text-gray-900">
-            EmailGator
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <Image
+              src={emailgatorLogo}
+              alt="EmailGator"
+              width={32}
+              height={32}
+              className="object-contain"
+            />
+            <span className="text-2xl font-bold text-gray-900">EmailGator</span>
           </Link>
           <Link
             href="/categories"
@@ -130,6 +158,42 @@ function CategoryDetailPageContent() {
           {selectedEmails.length > 0 && (
             <div className="flex items-center gap-4 bg-white rounded-xl px-6 py-4 shadow-sm border border-gray-200">
               <span className="text-gray-700 font-medium">{selectedEmails.length} selected</span>
+              <button
+                onClick={handleBulkUnsubscribe}
+                disabled={unsubscribeLoading}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {unsubscribeLoading ? (
+                  <>
+                    <svg
+                      className="w-4 h-4 animate-spin"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    Unsubscribing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                      />
+                    </svg>
+                    Unsubscribe Selected
+                  </>
+                )}
+              </button>
               <button
                 onClick={handleBulkDelete}
                 className="btn-primary bg-red-600 hover:bg-red-700"
@@ -191,9 +255,13 @@ function CategoryDetailPageContent() {
                       type="checkbox"
                       checked={selectedEmails.includes(email.id)}
                       onChange={() => handleToggleEmail(email.id)}
+                      onClick={(e) => e.stopPropagation()}
                       className="w-5 h-5 rounded border-gray-300 text-[#FF385C] focus:ring-[#FF385C] cursor-pointer mt-1"
                     />
-                    <div className="flex-1">
+                    <Link
+                      href={`/emails/${email.id}`}
+                      className="flex-1 cursor-pointer hover:opacity-90 transition-opacity"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <h3 className="text-xl font-semibold text-gray-900 pr-4">
                           {email.subject || '(No subject)'}
@@ -249,7 +317,7 @@ function CategoryDetailPageContent() {
                           })}
                         </p>
                       )}
-                    </div>
+                    </Link>
                   </div>
                 </div>
               ))}

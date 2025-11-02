@@ -28,3 +28,19 @@ mutation UnsubscribeEmails($emailIds: [ID!]!) {
   }
 }
 
+query GetEmail($id: ID!) {
+  email(id: $id) {
+    id
+    subject
+    from
+    snippet
+    summary
+    bodyText
+    bodyHtml
+    unsubscribeUrls
+    archivedAt
+    insertedAt
+    updatedAt
+  }
+}
+

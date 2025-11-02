@@ -74,4 +74,80 @@ defmodule EmailgatorWeb.Schema.Resolvers.Account do
   def trigger_poll(_parent, _args, _context) do
     {:error, "Not authenticated"}
   end
+
+  def polling_status(_parent, args, %{context: %{current_user: %{id: user_id}}}) do
+    import Ecto.Query
+    alias Emailgator.Repo
+
+    account_id = Map.get(args, :account_id)
+
+    # Build query based on whether account_id is provided
+    query =
+      if account_id do
+        # Verify account belongs to user
+        case Accounts.get_account(account_id) do
+          nil ->
+            {:error, "Account not found"}
+
+          account ->
+            if account.user_id == user_id do
+              from(j in Oban.Job,
+                where:
+                  j.queue == "poll" and
+                    j.state == "executing" and
+                    fragment("?->>'account_id'", j.args) == ^to_string(account_id)
+              )
+            else
+              {:error, "Account does not belong to user"}
+            end
+        end
+      else
+        # Check all user's accounts
+        account_ids =
+          Accounts.list_user_accounts(user_id)
+          |> Enum.map(& &1.id)
+          |> Enum.map(&to_string/1)
+
+        if Enum.empty?(account_ids) do
+          {:ok, false}
+        else
+          # Check if any executing poll jobs have account_id in args matching user's accounts
+          # Use a simpler approach: check each account_id and see if any match
+          result =
+            account_ids
+            |> Enum.any?(fn account_id_str ->
+              query =
+                from(j in Oban.Job,
+                  where:
+                    j.queue == "poll" and
+                      j.state == "executing" and
+                      fragment("?->>'account_id'", j.args) == ^account_id_str
+                )
+
+              Repo.exists?(query)
+            end)
+
+          {:ok, result}
+        end
+      end
+
+    # Handle the result - either an error tuple, ok tuple, or a query to execute
+    case query do
+      {:error, _} = error ->
+        error
+
+      {:ok, _} = result ->
+        # Already handled (empty account_ids case or multiple accounts check)
+        result
+
+      _query ->
+        # Execute query and return count
+        count = Repo.aggregate(query, :count, :id)
+        {:ok, count > 0}
+    end
+  end
+
+  def polling_status(_parent, _args, _context) do
+    {:error, "Not authenticated"}
+  end
 end

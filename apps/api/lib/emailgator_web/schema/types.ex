@@ -43,6 +43,7 @@ defmodule EmailgatorWeb.Schema.Types do
     field(:archived_at, :datetime)
     field(:inserted_at, :datetime)
     field(:updated_at, :datetime)
+    field(:category, :category)
   end
 
   object :unsubscribe_result do

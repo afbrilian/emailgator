@@ -3,7 +3,9 @@
 import CategoryList from '@/components/CategoryList'
 import { ProtectedRoute } from '@/lib/auth'
 import Link from 'next/link'
+import Image from 'next/image'
 import { API_ENDPOINTS } from '@/lib/config'
+import emailgatorLogo from '@/images/emailgator-logo.png'
 
 function CategoriesPageContent() {
   return (
@@ -11,8 +13,15 @@ function CategoriesPageContent() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-2xl font-bold text-gray-900">
-            EmailGator
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <Image
+              src={emailgatorLogo}
+              alt="EmailGator"
+              width={32}
+              height={32}
+              className="object-contain"
+            />
+            <span className="text-2xl font-bold text-gray-900">EmailGator</span>
           </Link>
           <div className="flex items-center gap-4">
             <Link

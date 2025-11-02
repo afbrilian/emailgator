@@ -2,9 +2,11 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PublicRoute } from '@/lib/auth'
 import { API_ENDPOINTS } from '@/lib/config'
+import emailgatorLogo from '@/images/emailgator-logo.png'
 
 function HomePage() {
   const router = useRouter()
@@ -24,7 +26,16 @@ function HomePage() {
     <main className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white">
       {/* Navigation */}
       <nav className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
-        <div className="text-2xl font-bold text-gray-900">EmailGator</div>
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src={emailgatorLogo}
+            alt="EmailGator"
+            width={40}
+            height={40}
+            className="object-contain"
+          />
+          <span className="text-2xl font-bold text-gray-900">EmailGator</span>
+        </Link>
         <Link href={API_ENDPOINTS.auth.google} className="btn-secondary">
           Sign in
         </Link>
@@ -33,6 +44,15 @@ function HomePage() {
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-6 py-20">
         <div className="max-w-4xl mx-auto text-center">
+          <div className="flex justify-center mb-8">
+            <Image
+              src={emailgatorLogo}
+              alt="EmailGator Logo"
+              width={120}
+              height={120}
+              className="object-contain"
+            />
+          </div>
           <h1 className="text-7xl font-bold mb-6 text-gray-900 tracking-tight leading-tight">
             AI-powered email
             <span className="block text-[#FF385C] mt-2">sorting made simple</span>

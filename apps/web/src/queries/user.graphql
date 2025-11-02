@@ -24,3 +24,11 @@ mutation DisconnectAccount($id: ID!) {
   }
 }
 
+mutation TriggerPoll($accountId: ID) {
+  triggerPoll(accountId: $accountId)
+}
+
+query PollingStatus($accountId: ID) {
+  pollingStatus(accountId: $accountId)
+}
+

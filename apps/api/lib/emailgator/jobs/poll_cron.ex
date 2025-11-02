@@ -20,6 +20,7 @@ defmodule Emailgator.Jobs.PollCron do
     accounts
     |> Enum.each(fn account ->
       Logger.info("PollCron: Queuing PollInbox job for account #{account.id}")
+
       %{account_id: account.id}
       |> PollInbox.new()
       |> Oban.insert()

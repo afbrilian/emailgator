@@ -25,7 +25,11 @@ defmodule EmailgatorWeb.GmailController do
         {:ok, %{url: url, session_params: session_params}} when is_list(session_params) ->
           # Convert keyword list to map before storing (Assent expects maps)
           session_map = Enum.into(session_params, %{})
-          Logger.info("🔍 Gmail - Storing session_params (converted to map): #{inspect(session_map)}")
+
+          Logger.info(
+            "🔍 Gmail - Storing session_params (converted to map): #{inspect(session_map)}"
+          )
+
           conn
           |> put_session(:gmail_connect_user_id, user_id)
           |> put_session(:gmail_session_params, session_map)
@@ -34,7 +38,10 @@ defmodule EmailgatorWeb.GmailController do
 
         {:ok, %{url: url, session_params: session_params}} when is_map(session_params) ->
           # Already a map, store directly
-          Logger.info("🔍 Gmail - Storing session_params (already map): #{inspect(session_params)}")
+          Logger.info(
+            "🔍 Gmail - Storing session_params (already map): #{inspect(session_params)}"
+          )
+
           conn
           |> put_session(:gmail_connect_user_id, user_id)
           |> put_session(:gmail_session_params, session_params)
@@ -44,6 +51,7 @@ defmodule EmailgatorWeb.GmailController do
         {:ok, %{url: url}} ->
           # If session_params not returned, Assent might handle state internally
           Logger.info("⚠️  Gmail - No session_params returned from authorize_url")
+
           conn
           |> put_session(:gmail_connect_user_id, user_id)
           |> put_session(:gmail_redirect_uri, redirect_uri)
@@ -69,7 +77,10 @@ defmodule EmailgatorWeb.GmailController do
       # Use the EXACT redirect_uri from the initial request (stored in session)
       redirect_uri = get_session(conn, :gmail_redirect_uri) || "#{base_url(conn)}/gmail/callback"
 
-      Logger.info("🔍 Gmail Callback - redirect_uri from session: #{inspect(get_session(conn, :gmail_redirect_uri))}")
+      Logger.info(
+        "🔍 Gmail Callback - redirect_uri from session: #{inspect(get_session(conn, :gmail_redirect_uri))}"
+      )
+
       Logger.info("🔍 Gmail Callback - redirect_uri being used: #{redirect_uri}")
 
       config = build_gmail_config(redirect_uri)
@@ -83,49 +94,70 @@ defmodule EmailgatorWeb.GmailController do
 
       # Convert session_params to map format (Assent expects a map, not keyword list)
       # ALWAYS ensure we have at least the state parameter for Assent
-      final_session_params = cond do
-        is_map(session_params) && map_size(session_params) > 0 ->
-          Logger.info("✅ Gmail - Using session_params map from session: #{inspect(session_params)}")
-          session_params
+      final_session_params =
+        cond do
+          is_map(session_params) && map_size(session_params) > 0 ->
+            Logger.info(
+              "✅ Gmail - Using session_params map from session: #{inspect(session_params)}"
+            )
 
-        is_list(session_params) && length(session_params) > 0 ->
-          # Convert keyword list to map
-          map = Enum.into(session_params, %{})
-          Logger.info("✅ Gmail - Converted session_params keyword list to map: #{inspect(map)}")
-          map
+            session_params
 
-        params["state"] != nil ->
-          # Fallback: use state from URL params - create as map
-          state = params["state"]
-          Logger.warning("⚠️  Gmail - No session_params in session, using state from URL params: #{state}")
-          Logger.warning("⚠️  This may indicate session wasn't persisted across redirect")
-          %{state: state}
+          is_list(session_params) && length(session_params) > 0 ->
+            # Convert keyword list to map
+            map = Enum.into(session_params, %{})
+            Logger.info("✅ Gmail - Converted session_params keyword list to map: #{inspect(map)}")
+            map
 
-        true ->
-          Logger.error("❌ Gmail - No session_params and no state in params - cannot proceed")
-          %{}
-      end
+          params["state"] != nil ->
+            # Fallback: use state from URL params - create as map
+            state = params["state"]
+
+            Logger.warning(
+              "⚠️  Gmail - No session_params in session, using state from URL params: #{state}"
+            )
+
+            Logger.warning("⚠️  This may indicate session wasn't persisted across redirect")
+            %{state: state}
+
+          true ->
+            Logger.error("❌ Gmail - No session_params and no state in params - cannot proceed")
+            %{}
+        end
 
       # CRITICAL: Assent REQUIRES session_params with at least 'state' key
       # Always merge session_params into config, using state from URL if session was lost
-      callback_config = if map_size(final_session_params) > 0 do
-        Logger.info("✅ Gmail - Merging session_params into config: #{inspect(final_session_params)}")
-        Keyword.merge(config, session_params: final_session_params)
-      else
-        # Last resort: extract state from params and use it
-        state_from_params = params["state"]
-        if state_from_params do
-          Logger.warning("⚠️  Gmail - Session lost, using state from callback URL: #{state_from_params}")
-          Keyword.merge(config, session_params: %{state: state_from_params})
-        else
-          Logger.error("❌ Gmail - No state available - OAuth will fail!")
-          Logger.error("❌ Config without session_params: #{inspect(config)}")
-          config
-        end
-      end
+      callback_config =
+        if map_size(final_session_params) > 0 do
+          Logger.info(
+            "✅ Gmail - Merging session_params into config: #{inspect(final_session_params)}"
+          )
 
-      Logger.info("🔍 Gmail Callback config has session_params: #{Keyword.has_key?(callback_config, :session_params)}")
-      Logger.info("🔍 Gmail Callback config session_params value: #{inspect(Keyword.get(callback_config, :session_params))}")
+          Keyword.merge(config, session_params: final_session_params)
+        else
+          # Last resort: extract state from params and use it
+          state_from_params = params["state"]
+
+          if state_from_params do
+            Logger.warning(
+              "⚠️  Gmail - Session lost, using state from callback URL: #{state_from_params}"
+            )
+
+            Keyword.merge(config, session_params: %{state: state_from_params})
+          else
+            Logger.error("❌ Gmail - No state available - OAuth will fail!")
+            Logger.error("❌ Config without session_params: #{inspect(config)}")
+            config
+          end
+        end
+
+      Logger.info(
+        "🔍 Gmail Callback config has session_params: #{Keyword.has_key?(callback_config, :session_params)}"
+      )
+
+      Logger.info(
+        "🔍 Gmail Callback config session_params value: #{inspect(Keyword.get(callback_config, :session_params))}"
+      )
 
       case Google.callback(callback_config, params) do
         {:ok, %{user: user_params, token: token}} ->

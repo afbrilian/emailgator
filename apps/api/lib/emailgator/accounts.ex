@@ -76,7 +76,9 @@ defmodule Emailgator.Accounts do
         nil
 
       account ->
-        Logger.info("Accounts.get_account_with_valid_token: Found account, checking token expiration. expires_at: #{inspect(account.expires_at)}")
+        Logger.info(
+          "Accounts.get_account_with_valid_token: Found account, checking token expiration. expires_at: #{inspect(account.expires_at)}"
+        )
 
         if token_expired?(account) do
           Logger.info("Accounts.get_account_with_valid_token: Token expired, refreshing...")
@@ -92,6 +94,7 @@ defmodule Emailgator.Accounts do
     case account.expires_at do
       nil ->
         true
+
       expires_at ->
         comparison = DateTime.compare(DateTime.utc_now(), expires_at)
         expired = comparison != :lt
@@ -101,11 +104,15 @@ defmodule Emailgator.Accounts do
 
   defp refresh_account_token(%Account{} = account) do
     require Logger
-    Logger.info("Accounts.refresh_account_token: Starting token refresh for account #{account.id}")
+
+    Logger.info(
+      "Accounts.refresh_account_token: Starting token refresh for account #{account.id}"
+    )
 
     case Emailgator.Gmail.refresh_token(account) do
       {:ok, new_token, expires_at} ->
         Logger.info("Accounts.refresh_account_token: Token refresh successful, updating account")
+
         case update_account(account, %{
                access_token: new_token,
                expires_at: expires_at
@@ -113,8 +120,12 @@ defmodule Emailgator.Accounts do
           {:ok, updated_account} ->
             Logger.info("Accounts.refresh_account_token: Account updated successfully")
             {:ok, updated_account}
+
           {:error, reason} = error ->
-            Logger.error("Accounts.refresh_account_token: Failed to update account: #{inspect(reason)}")
+            Logger.error(
+              "Accounts.refresh_account_token: Failed to update account: #{inspect(reason)}"
+            )
+
             error
         end
 

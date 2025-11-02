@@ -1,27 +1,81 @@
 'use client'
 
-import { useQuery } from '@apollo/client'
-import { GetMeDocument, GetAccountsDocument, GetCategoriesDocument } from '@/gql'
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client'
+import { GetMeDocument, GetAccountsDocument, GetCategoriesDocument, TriggerPollDocument, PollingStatusDocument } from '@/gql'
 import Link from 'next/link'
+import Image from 'next/image'
 import { API_ENDPOINTS } from '@/lib/config'
 import { ProtectedRoute } from '@/lib/auth'
+import { useState, useEffect } from 'react'
+import emailgatorLogo from '@/images/emailgator-logo.png'
 
 function DashboardPageContent() {
   const { data: userData } = useQuery(GetMeDocument)
   const { data: accountsData, loading: accountsLoading } = useQuery(GetAccountsDocument)
   const { data: categoriesData, loading: categoriesLoading } = useQuery(GetCategoriesDocument)
+  const [isPolling, setIsPolling] = useState(false)
+  const [triggerPoll, { loading: triggerLoading }] = useMutation(TriggerPollDocument)
+  const [checkPollingStatus, { data: pollingStatusData, stopPolling }] = useLazyQuery(PollingStatusDocument, {
+    fetchPolicy: 'network-only',
+  })
 
   const accounts = accountsData?.accounts || []
   const categories = categoriesData?.categories || []
   const userName = userData?.me?.name || userData?.me?.email?.split('@')[0] || 'User'
+  const isPollingActive = pollingStatusData?.pollingStatus === true || isPolling
+
+  // Poll for status when isPolling is true
+  useEffect(() => {
+    if (isPolling) {
+      // Check immediately
+      checkPollingStatus()
+      
+      // Then poll every 2 seconds
+      const interval = setInterval(() => {
+        checkPollingStatus()
+      }, 2000)
+
+      return () => {
+        clearInterval(interval)
+      }
+    } else {
+      // Stop polling when isPolling becomes false
+      stopPolling()
+    }
+  }, [isPolling, checkPollingStatus, stopPolling])
+
+  // Stop polling when status becomes false
+  useEffect(() => {
+    if (pollingStatusData?.pollingStatus === false && isPolling) {
+      setIsPolling(false)
+    }
+  }, [pollingStatusData, isPolling])
+
+  const handleRefresh = async () => {
+    try {
+      setIsPolling(true)
+      await triggerPoll()
+      // Status checking will start automatically via useEffect
+    } catch (error) {
+      console.error('Failed to trigger poll:', error)
+      setIsPolling(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-2xl font-bold text-gray-900">
-            EmailGator
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <Image
+              src={emailgatorLogo}
+              alt="EmailGator"
+              width={32}
+              height={32}
+              className="object-contain"
+            />
+            <span className="text-2xl font-bold text-gray-900">EmailGator</span>
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-gray-600 hidden sm:inline">Welcome, {userName}</span>
@@ -41,24 +95,62 @@ function DashboardPageContent() {
           <p className="text-xl text-gray-600">Manage your Gmail accounts and email categories</p>
         </div>
 
-        {/* Gmail Accounts Section */}
+        {/* Email Accounts Section */}
         <section className="card p-8 mb-8">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h2 className="text-2xl font-semibold mb-2 text-gray-900">Gmail Accounts</h2>
+              <h2 className="text-2xl font-semibold mb-2 text-gray-900">Email Accounts</h2>
               <p className="text-gray-600">Connect your Gmail accounts to start sorting</p>
             </div>
-            <Link href="/gmail/connect" className="btn-primary flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Connect Gmail
-            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefresh}
+                disabled={isPollingActive || triggerLoading}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isPollingActive ? (
+                  <>
+                    <svg
+                      className="w-5 h-5 animate-spin"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    Fetching...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    Get Emails
+                  </>
+                )}
+              </button>
+              <Link href="/gmail/connect" className="btn-primary flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Connect Gmail
+              </Link>
+            </div>
           </div>
 
           {accountsLoading ? (
