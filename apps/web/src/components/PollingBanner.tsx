@@ -23,7 +23,7 @@ export function PollingBanner() {
   }
 
   return (
-    <div 
+    <div
       className="fixed top-0 left-0 right-0 z-50 bg-blue-50 border-b border-blue-200 shadow-sm pointer-events-none"
       style={{ height: '60px' }}
     >
@@ -49,4 +49,3 @@ export function PollingBanner() {
     </div>
   )
 }
-

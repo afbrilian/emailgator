@@ -55,9 +55,10 @@ export default function CategoryForm({ category }: CategoryFormProps) {
           },
         })
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to save category:', err)
-      alert(err.message || 'Failed to save category')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save category'
+      alert(errorMessage)
     }
   }
 

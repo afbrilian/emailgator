@@ -19,6 +19,11 @@ defmodule Emailgator.Emails do
   def get_email(id), do: Repo.get(Email, id)
   def get_email!(id), do: Repo.get!(Email, id)
 
+  def get_email_with_account(id) do
+    from(e in Email, where: e.id == ^id, preload: [:account])
+    |> Repo.one()
+  end
+
   def get_email_by_gmail_id(account_id, gmail_message_id) do
     Repo.get_by(Email, account_id: account_id, gmail_message_id: gmail_message_id)
   end

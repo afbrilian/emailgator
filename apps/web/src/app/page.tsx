@@ -132,7 +132,7 @@ function HomePage() {
               </div>
               <h3 className="text-xl font-semibold mb-2 text-gray-900">Smart Summaries</h3>
               <p className="text-gray-600 leading-relaxed">
-                Get instant AI-generated summaries so you know what's important at a glance.
+                Get instant AI-generated summaries so you know what&apos;s important at a glance.
               </p>
             </div>
 

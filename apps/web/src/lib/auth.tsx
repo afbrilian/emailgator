@@ -68,7 +68,8 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
   const [checkingAuth, setCheckingAuth] = useState(false)
 
   // Check if we're coming from OAuth callback
-  const isOAuthCallback = searchParams?.get('auth') === 'success' || searchParams?.get('gmail') === 'connected'
+  const isOAuthCallback =
+    searchParams?.get('auth') === 'success' || searchParams?.get('gmail') === 'connected'
 
   useEffect(() => {
     // If coming from OAuth callback, force a refetch after a short delay
@@ -79,7 +80,7 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
       const timer = setTimeout(() => {
         refetch()
       }, 300)
-      
+
       return () => clearTimeout(timer)
     }
   }, [isOAuthCallback, checkingAuth, refetch])
@@ -90,7 +91,7 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
       const timer = setTimeout(() => {
         router.push('/dashboard')
       }, 100)
-      
+
       return () => clearTimeout(timer)
     }
   }, [isAuthenticated, loading, router])
@@ -111,4 +112,3 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>
 }
-

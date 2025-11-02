@@ -1,7 +1,12 @@
 'use client'
 
 import { useQuery, useMutation } from '@apollo/client'
-import { GetMeDocument, GetAccountsDocument, GetCategoriesDocument, TriggerPollDocument } from '@/gql'
+import {
+  GetMeDocument,
+  GetAccountsDocument,
+  GetCategoriesDocument,
+  TriggerPollDocument,
+} from '@/gql'
 import Link from 'next/link'
 import Image from 'next/image'
 import { API_ENDPOINTS } from '@/lib/config'
@@ -21,13 +26,13 @@ function DashboardPageContent() {
   const accounts = accountsData?.accounts || []
   const categories = categoriesData?.categories || []
   const userName = userData?.me?.name || userData?.me?.email?.split('@')[0] || 'User'
-  
+
   // Combined state for button disabled
   const buttonDisabled = isPollingActive || accounts.length === 0 || triggerLoading || isRefreshing
 
   const handleRefresh = async () => {
     if (accounts.length === 0 || buttonDisabled) return
-    
+
     try {
       setIsRefreshing(true) // Disable button immediately
       startPolling() // Start polling immediately to show banner
@@ -39,7 +44,7 @@ function DashboardPageContent() {
     }
     // Note: isRefreshing will be reset when polling completes via isPollingActive
   }
-  
+
   // Reset isRefreshing when polling is no longer active
   useEffect(() => {
     if (!isPollingActive && isRefreshing) {
@@ -164,7 +169,7 @@ function DashboardPageContent() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {accounts.map((account: any) => (
+              {accounts.map((account: { id: string; email: string; insertedAt: string }) => (
                 <div
                   key={account.id}
                   className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
@@ -262,16 +267,36 @@ function DashboardPageContent() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {categories.map((category: any) => (
-                <Link
-                  key={category.id}
-                  href={`/categories/${category.id}`}
-                  className="card p-6 hover:shadow-lg transition-all duration-200 group"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#FF385C] to-[#E61E4D] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              {categories.map(
+                (category: {
+                  id: string
+                  name: string
+                  description?: string
+                  emailCount?: number
+                }) => (
+                  <Link
+                    key={category.id}
+                    href={`/categories/${category.id}`}
+                    className="card p-6 hover:shadow-lg transition-all duration-200 group"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-[#FF385C] to-[#E61E4D] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <svg
+                          className="w-6 h-6 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                          />
+                        </svg>
+                      </div>
                       <svg
-                        className="w-6 h-6 text-white"
+                        className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -280,34 +305,21 @@ function DashboardPageContent() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                          d="M9 5l7 7-7 7"
                         />
                       </svg>
                     </div>
-                    <svg
-                      className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2 text-gray-900 group-hover:text-[#FF385C] transition-colors">
-                    {category.name}
-                  </h3>
-                  {category.description && (
-                    <p className="text-gray-600 leading-relaxed line-clamp-2">
-                      {category.description}
-                    </p>
-                  )}
-                </Link>
-              ))}
+                    <h3 className="text-xl font-semibold mb-2 text-gray-900 group-hover:text-[#FF385C] transition-colors">
+                      {category.name}
+                    </h3>
+                    {category.description && (
+                      <p className="text-gray-600 leading-relaxed line-clamp-2">
+                        {category.description}
+                      </p>
+                    )}
+                  </Link>
+                )
+              )}
             </div>
           )}
         </section>

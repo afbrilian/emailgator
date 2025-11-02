@@ -13,7 +13,7 @@ defmodule Emailgator.Jobs.Unsubscribe do
     require Logger
     Logger.info("Unsubscribe: Starting unsubscribe job for email #{email_id}")
 
-    case Emails.get_email(email_id) do
+    case Emails.get_email_with_account(email_id) do
       nil ->
         Logger.error("Unsubscribe: Email #{email_id} not found")
         {:cancel, "Email not found"}
@@ -199,7 +199,7 @@ defmodule Emailgator.Jobs.Unsubscribe do
     |> String.replace("&nbsp;", " ")
   end
 
-  defp try_playwright_unsubscribe(url) do
+  defp try_playwright_unsubscribe(url, account_email \\ nil) do
     require Logger
 
     sidecar_config = Application.get_env(:emailgator_api, :sidecar)
@@ -220,6 +220,10 @@ defmodule Emailgator.Jobs.Unsubscribe do
       else
         Logger.info("Unsubscribe: Calling sidecar at #{sidecar_url}/run for URL: #{url}")
 
+        if account_email do
+          Logger.info("Unsubscribe: Passing account email to sidecar: #{account_email}")
+        end
+
         Logger.info(
           "Unsubscribe: Token length: #{String.length(to_string(token))}, first 4 chars: #{String.slice(to_string(token), 0..3)}..."
         )
@@ -229,7 +233,9 @@ defmodule Emailgator.Jobs.Unsubscribe do
           Task.async(fn ->
             try do
               # Use Finch directly with explicit timeout (90s for sidecar operations)
-              body_json = Jason.encode!(%{url: url})
+              body = %{url: url}
+              body = if account_email, do: Map.put(body, :email, account_email), else: body
+              body_json = Jason.encode!(body)
 
               request =
                 Finch.build(

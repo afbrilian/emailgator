@@ -104,35 +104,21 @@ export default function CategoryList() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category: any) => (
-              <div
-                key={category.id}
-                className="card p-6 hover:shadow-lg transition-all duration-200 group"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#FF385C] to-[#E61E4D] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <svg
-                      className="w-6 h-6 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/categories/${category.id}`}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                      title="View category"
-                    >
+            {categories.map(
+              (category: {
+                id: string
+                name: string
+                description?: string
+                emailCount?: number
+              }) => (
+                <div
+                  key={category.id}
+                  className="card p-6 hover:shadow-lg transition-all duration-200 group"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#FF385C] to-[#E61E4D] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                       <svg
-                        className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors"
+                        className="w-6 h-6 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -141,41 +127,62 @@ export default function CategoryList() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M9 5l7 7-7 7"
+                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
                         />
                       </svg>
-                    </Link>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/categories/${category.id}`}
+                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                        title="View category"
+                      >
+                        <svg
+                          className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </Link>
+                    </div>
                   </div>
-                </div>
-                <Link
-                  href={`/categories/${category.id}`}
-                  className="block group-hover:text-[#FF385C] transition-colors"
-                >
-                  <h3 className="text-xl font-semibold mb-2 text-gray-900 group-hover:text-[#FF385C] transition-colors">
-                    {category.name}
-                  </h3>
-                </Link>
-                {category.description && (
-                  <p className="text-gray-600 leading-relaxed line-clamp-2 mb-4">
-                    {category.description}
-                  </p>
-                )}
-                <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
                   <Link
                     href={`/categories/${category.id}`}
-                    className="text-sm font-medium text-[#FF385C] hover:text-[#E61E4D] transition-colors"
+                    className="block group-hover:text-[#FF385C] transition-colors"
                   >
-                    View Emails →
+                    <h3 className="text-xl font-semibold mb-2 text-gray-900 group-hover:text-[#FF385C] transition-colors">
+                      {category.name}
+                    </h3>
                   </Link>
-                  <button
-                    onClick={() => handleDelete(category.id)}
-                    className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors ml-auto"
-                  >
-                    Delete
-                  </button>
+                  {category.description && (
+                    <p className="text-gray-600 leading-relaxed line-clamp-2 mb-4">
+                      {category.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
+                    <Link
+                      href={`/categories/${category.id}`}
+                      className="text-sm font-medium text-[#FF385C] hover:text-[#E61E4D] transition-colors"
+                    >
+                      View Emails →
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(category.id)}
+                      className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors ml-auto"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         )}
       </section>

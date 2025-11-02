@@ -16,9 +16,12 @@ const PollingContext = createContext<PollingContextType | undefined>(undefined)
 export function PollingProvider({ children }: { children: ReactNode }) {
   const [isPollingActive, setIsPollingActive] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
-  const [checkPollingStatus, { data: pollingStatusData, stopPolling }] = useLazyQuery(PollingStatusDocument, {
-    fetchPolicy: 'network-only',
-  })
+  const [checkPollingStatus, { data: pollingStatusData, stopPolling }] = useLazyQuery(
+    PollingStatusDocument,
+    {
+      fetchPolicy: 'network-only',
+    }
+  )
 
   // Poll for status when isPolling is true
   useEffect(() => {
@@ -27,7 +30,7 @@ export function PollingProvider({ children }: { children: ReactNode }) {
       const initialTimeout = setTimeout(() => {
         checkPollingStatus()
       }, 1500)
-      
+
       // Then poll every 2 seconds
       const interval = setInterval(() => {
         checkPollingStatus()
@@ -58,15 +61,19 @@ export function PollingProvider({ children }: { children: ReactNode }) {
   // Don't stop immediately if status is false - give it a few checks
   useEffect(() => {
     // Only stop if we have a status response AND it's false AND we've been polling for a bit
-    if (pollingStatusData?.pollingStatus === false && isPolling && pollingStatusData !== undefined) {
+    if (
+      pollingStatusData?.pollingStatus === false &&
+      isPolling &&
+      pollingStatusData !== undefined
+    ) {
       // Wait a bit before stopping to ensure the job is really done
       const stopTimeout = setTimeout(() => {
         setIsPolling(false)
       }, 1000)
-      
+
       return () => clearTimeout(stopTimeout)
     }
-  }, [pollingStatusData?.pollingStatus, isPolling])
+  }, [pollingStatusData?.pollingStatus, isPolling, pollingStatusData])
 
   const startPolling = () => {
     setIsPolling(true)
@@ -100,4 +107,3 @@ export function usePolling() {
   }
   return context
 }
-
