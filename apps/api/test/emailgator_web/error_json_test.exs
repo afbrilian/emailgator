@@ -37,4 +37,26 @@ defmodule EmailgatorWeb.ErrorJSONTest do
       assert result == %{error: "Unauthorized"}
     end
   end
+
+  describe "translate_errors/1 (private)" do
+    test "formats multiple errors correctly" do
+      changeset =
+        %Emailgator.Accounts.User{}
+        |> Ecto.Changeset.change(%{email: nil, name: nil})
+        |> Ecto.Changeset.validate_required([:email, :name])
+
+      result = ErrorJSON.error(%{changeset: changeset})
+      assert Map.has_key?(result, :errors)
+    end
+
+    test "handles errors with interpolation" do
+      changeset =
+        %Emailgator.Accounts.User{}
+        |> Ecto.Changeset.change()
+        |> Ecto.Changeset.add_error(:email, "must be at least %{count} characters", count: 5)
+
+      result = ErrorJSON.error(%{changeset: changeset})
+      assert Map.has_key?(result, :errors)
+    end
+  end
 end

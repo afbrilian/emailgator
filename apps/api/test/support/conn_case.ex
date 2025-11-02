@@ -24,10 +24,20 @@ defmodule EmailgatorWeb.ConnCase do
   @doc """
   Helper to build a GraphQL query/mutation string.
   """
-  def query(query_string, variables \\ %{}) do
+  def query(query_string, variables \\\\ %{}) do
     %{
       query: query_string,
       variables: variables
     }
+  end
+
+  @doc """
+  Helper to build a connection for controller tests.
+  This is a macro that expands to Plug.Test.conn/3
+  """
+  defmacro build_conn(method \\\\ :get, path \\\\ "/", body_or_params \\\\ nil) do
+    quote do
+      Plug.Test.conn(unquote(method), unquote(path), unquote(body_or_params))
+    end
   end
 end
