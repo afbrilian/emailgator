@@ -8,7 +8,8 @@ defmodule Emailgator.Application do
       Emailgator.Repo,
       {Phoenix.PubSub, name: Emailgator.PubSub},
       EmailgatorWeb.Endpoint,
-      {Oban, Application.get_env(:emailgator_api, Oban)}
+      {Oban, Application.get_env(:emailgator_api, Oban)},
+      {Finch, name: Emailgator.Finch}
     ]
 
     opts = [strategy: :one_for_one, name: Emailgator.Supervisor]

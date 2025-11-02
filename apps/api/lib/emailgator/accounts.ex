@@ -67,14 +67,22 @@ defmodule Emailgator.Accounts do
   Get account with valid access token, refreshing if needed.
   """
   def get_account_with_valid_token(account_id) do
+    require Logger
+    Logger.info("Accounts.get_account_with_valid_token: Called for account_id: #{account_id}")
+
     case get_account(account_id) do
       nil ->
+        Logger.warning("Accounts.get_account_with_valid_token: Account #{account_id} not found")
         nil
 
       account ->
+        Logger.info("Accounts.get_account_with_valid_token: Found account, checking token expiration. expires_at: #{inspect(account.expires_at)}")
+
         if token_expired?(account) do
+          Logger.info("Accounts.get_account_with_valid_token: Token expired, refreshing...")
           refresh_account_token(account)
         else
+          Logger.info("Accounts.get_account_with_valid_token: Token is valid, returning account")
           {:ok, account}
         end
     end
@@ -82,24 +90,37 @@ defmodule Emailgator.Accounts do
 
   defp token_expired?(%Account{} = account) do
     case account.expires_at do
-      nil -> true
-      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) != :lt
+      nil ->
+        true
+      expires_at ->
+        comparison = DateTime.compare(DateTime.utc_now(), expires_at)
+        expired = comparison != :lt
+        expired
     end
   end
 
   defp refresh_account_token(%Account{} = account) do
+    require Logger
+    Logger.info("Accounts.refresh_account_token: Starting token refresh for account #{account.id}")
+
     case Emailgator.Gmail.refresh_token(account) do
       {:ok, new_token, expires_at} ->
+        Logger.info("Accounts.refresh_account_token: Token refresh successful, updating account")
         case update_account(account, %{
                access_token: new_token,
                expires_at: expires_at
              }) do
-          {:ok, updated_account} -> {:ok, updated_account}
-          error -> error
+          {:ok, updated_account} ->
+            Logger.info("Accounts.refresh_account_token: Account updated successfully")
+            {:ok, updated_account}
+          {:error, reason} = error ->
+            Logger.error("Accounts.refresh_account_token: Failed to update account: #{inspect(reason)}")
+            error
         end
 
-      {:error, reason} ->
-        {:error, reason}
+      {:error, reason} = error ->
+        Logger.error("Accounts.refresh_account_token: Token refresh failed: #{inspect(reason)}")
+        error
     end
   end
 end

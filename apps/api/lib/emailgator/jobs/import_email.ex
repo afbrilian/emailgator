@@ -5,50 +5,112 @@ defmodule Emailgator.Jobs.ImportEmail do
   use Oban.Worker, queue: :import, max_attempts: 3
   alias Emailgator.{Accounts, Categories, Emails, Gmail, LLM, Jobs.ArchiveEmail}
 
+  require Logger
+
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"account_id" => account_id, "message_id" => message_id}}) do
+    Logger.info("ImportEmail: Starting import for message #{message_id}, account #{account_id}")
+
     account = Accounts.get_account(account_id)
 
     if is_nil(account) do
+      Logger.error("ImportEmail: Account #{account_id} not found")
       {:cancel, "Account not found"}
     else
       # Check if email already imported
       if Emails.get_email_by_gmail_id(account_id, message_id) do
+        Logger.info("ImportEmail: Message #{message_id} already imported, skipping")
         :ok
       else
+        Logger.info("ImportEmail: Importing new message #{message_id}")
         import_email(account, message_id)
       end
     end
   end
 
   defp import_email(account, message_id) do
-    with {:ok, gmail_message} <- Gmail.get_message(account.id, message_id),
-         {:ok, email_data} <- extract_email_data(gmail_message),
-         {:ok, category, summary, urls} <- classify_email(account.user_id, email_data),
-         {:ok, _email} <- save_email(account, category, email_data, message_id, summary, urls),
-         {:ok, _} <- queue_archive(account.id, message_id) do
-      :ok
-    else
+    Logger.info("ImportEmail: Step 1 - Fetching message from Gmail API")
+
+    case Gmail.get_message(account.id, message_id) do
+      {:ok, gmail_message} ->
+        Logger.info("ImportEmail: Step 2 - Extracting email data")
+
+        case extract_email_data(gmail_message) do
+          {:ok, email_data} ->
+            Logger.info("ImportEmail: Step 3 - Classifying email with LLM")
+
+            case classify_email(account.user_id, email_data) do
+              {:ok, category, summary, urls} ->
+                Logger.info("ImportEmail: Step 4 - Saving email to database")
+
+                case save_email(account, category, email_data, message_id, summary, urls) do
+                  {:ok, _email} ->
+                    Logger.info("ImportEmail: Step 5 - Queuing archive job")
+
+                    case queue_archive(account.id, message_id) do
+                      {:ok, _} ->
+                        Logger.info("ImportEmail: Successfully imported message #{message_id}")
+                        :ok
+
+                      {:error, reason} ->
+                        Logger.warning(
+                          "ImportEmail: Import succeeded but archive queue failed: #{inspect(reason)}"
+                        )
+
+                        # Still return :ok since email was imported
+                        :ok
+                    end
+
+                  {:error, reason} ->
+                    Logger.error("ImportEmail: Failed to save email: #{inspect(reason)}")
+                    {:error, "Import failed at save: #{inspect(reason)}"}
+                end
+
+              {:error, {:rate_limit, _}} ->
+                Logger.warning("ImportEmail: Rate limited, snoozing for 20 seconds")
+                {:snooze, 20}
+
+              {:error, reason} ->
+                Logger.error("ImportEmail: Failed to classify email: #{inspect(reason)}")
+                {:error, "Import failed at classification: #{inspect(reason)}"}
+            end
+
+          {:error, reason} ->
+            Logger.error("ImportEmail: Failed to extract email data: #{inspect(reason)}")
+            {:error, "Import failed at extraction: #{inspect(reason)}"}
+        end
+
       {:error, reason} ->
-        {:error, "Import failed: #{inspect(reason)}"}
+        Logger.error("ImportEmail: Failed to fetch message from Gmail: #{inspect(reason)}")
+        {:error, "Import failed at Gmail fetch: #{inspect(reason)}"}
     end
   end
 
   defp extract_email_data(%{"payload" => payload, "snippet" => snippet, "id" => id}) do
-    subject = get_header(payload, "Subject")
-    from = get_header(payload, "From")
-    body_text = extract_body_text(payload)
-    body_html = extract_body_html(payload)
+    try do
+      subject = get_header(payload, "Subject")
+      from = get_header(payload, "From")
+      body_text = extract_body_text(payload)
+      body_html = extract_body_html(payload)
 
-    {:ok,
-     %{
-       subject: subject,
-       from: from,
-       snippet: snippet,
-       body_text: body_text,
-       body_html: body_html,
-       gmail_message_id: id
-     }}
+      {:ok,
+       %{
+         subject: subject,
+         from: from,
+         snippet: snippet,
+         body_text: body_text,
+         body_html: body_html,
+         gmail_message_id: id
+       }}
+    rescue
+      e ->
+        Logger.error("ImportEmail: Failed to extract email data: #{inspect(e)}")
+        {:error, "Failed to extract email data: #{inspect(e)}"}
+    end
+  end
+
+  defp extract_email_data(_invalid_message) do
+    {:error, "Invalid message format"}
   end
 
   defp get_header(payload, name) do
@@ -58,15 +120,51 @@ defmodule Emailgator.Jobs.ImportEmail do
 
   defp extract_body_text(payload) do
     case get_body_part(payload, "text/plain") do
-      nil -> ""
-      data -> Base.decode64!(data) |> String.trim()
+      nil ->
+        ""
+
+      "" ->
+        ""
+
+      data ->
+        # Gmail API uses Base64url encoding (RFC 4648 §5)
+        case Base.url_decode64(data) do
+          {:ok, decoded} ->
+            String.trim(decoded)
+
+          :error ->
+            # Fallback to standard Base64 if url_decode fails
+            try do
+              Base.decode64!(data) |> String.trim()
+            rescue
+              _e -> ""
+            end
+        end
     end
   end
 
   defp extract_body_html(payload) do
     case get_body_part(payload, "text/html") do
-      nil -> ""
-      data -> Base.decode64!(data) |> String.trim()
+      nil ->
+        ""
+
+      "" ->
+        ""
+
+      data ->
+        # Gmail API uses Base64url encoding (RFC 4648 §5)
+        case Base.url_decode64(data) do
+          {:ok, decoded} ->
+            String.trim(decoded)
+
+          :error ->
+            # Fallback to standard Base64 if url_decode fails
+            try do
+              Base.decode64!(data) |> String.trim()
+            rescue
+              _e -> ""
+            end
+        end
     end
   end
 
@@ -103,8 +201,14 @@ defmodule Emailgator.Jobs.ImportEmail do
           category = Categories.get_category(category_id)
           {:ok, category, summary, urls}
 
+        {:error, {:rate_limit, _body}} ->
+          # Rate limit error - return special error to trigger retry with backoff
+          Logger.warning("ImportEmail: OpenAI rate limit hit, job will retry with backoff")
+          {:error, {:rate_limit, "OpenAI rate limit exceeded"}}
+
         {:error, _reason} ->
-          # Fallback to first category
+          # Fallback to first category for other errors
+          Logger.warning("ImportEmail: LLM classification failed, using fallback category")
           first_category = List.first(categories)
           {:ok, first_category, "Unable to generate summary", []}
       end
@@ -127,10 +231,15 @@ defmodule Emailgator.Jobs.ImportEmail do
   end
 
   defp queue_archive(account_id, message_id) do
-    %{account_id: account_id, message_id: message_id}
-    |> ArchiveEmail.new()
-    |> Oban.insert()
+    case %{account_id: account_id, message_id: message_id}
+         |> ArchiveEmail.new()
+         |> Oban.insert() do
+      {:ok, _job} ->
+        {:ok, :queued}
 
-    {:ok, :queued}
+      {:error, reason} ->
+        Logger.warning("ImportEmail: Failed to queue archive job: #{inspect(reason)}")
+        {:error, "Failed to queue archive: #{inspect(reason)}"}
+    end
   end
 end

@@ -26,13 +26,14 @@ config :emailgator_api, EmailgatorWeb.Endpoint,
 # Oban configuration
 config :emailgator_api, Oban,
   repo: Emailgator.Repo,
-  queues: [poll: 5, import: 20, archive: 10, unsubscribe: 5],
+  queues: [poll: 1, import: 1, archive: 5, unsubscribe: 5],
   plugins: [
     {Oban.Plugins.Pruner, max_age: 3600 * 24 * 7},
     {Oban.Plugins.Cron,
      crontab: [
        {"*/2 * * * *", Emailgator.Jobs.PollCron}
-     ]}
+     ],
+     timezone: "Etc/UTC"}
   ]
 
 # Tesla adapter

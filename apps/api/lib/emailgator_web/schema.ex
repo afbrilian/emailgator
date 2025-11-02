@@ -66,5 +66,11 @@ defmodule EmailgatorWeb.Schema do
       arg(:email_ids, non_null(list_of(non_null(:id))))
       resolve(&EmailgatorWeb.Schema.Resolvers.Email.bulk_unsubscribe/3)
     end
+
+    field :trigger_poll, :boolean do
+      arg(:account_id, :id)
+
+      resolve(&EmailgatorWeb.Schema.Resolvers.Account.trigger_poll/3)
+    end
   end
 end

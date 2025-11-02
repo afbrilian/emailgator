@@ -1,5 +1,5 @@
 defmodule EmailgatorWeb.Schema.Resolvers.Account do
-  alias Emailgator.Accounts
+  alias Emailgator.{Accounts, Jobs.PollInbox}
 
   def list(_parent, _args, %{context: %{current_user: %{id: user_id}}}) do
     {:ok, Accounts.list_user_accounts(user_id)}
@@ -32,6 +32,46 @@ defmodule EmailgatorWeb.Schema.Resolvers.Account do
   end
 
   def disconnect(_parent, _args, _context) do
+    {:error, "Not authenticated"}
+  end
+
+  def trigger_poll(_parent, args, %{context: %{current_user: %{id: user_id}}}) do
+    case Map.get(args, :account_id) do
+      nil ->
+        # Poll all user's active accounts
+        accounts = Accounts.list_user_accounts(user_id)
+
+        accounts
+        |> Enum.filter(fn account -> not is_nil(account.refresh_token) end)
+        |> Enum.each(fn account ->
+          %{account_id: account.id}
+          |> PollInbox.new()
+          |> Oban.insert()
+        end)
+
+        {:ok, true}
+
+      account_id ->
+        # Poll specific account if it belongs to user
+        case Accounts.get_account(account_id) do
+          nil ->
+            {:error, "Account not found"}
+
+          account ->
+            if account.user_id == user_id do
+              %{account_id: account_id}
+              |> PollInbox.new()
+              |> Oban.insert()
+
+              {:ok, true}
+            else
+              {:error, "Account does not belong to user"}
+            end
+        end
+    end
+  end
+
+  def trigger_poll(_parent, _args, _context) do
     {:error, "Not authenticated"}
   end
 end
