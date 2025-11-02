@@ -55,15 +55,61 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
 
+    defaults:
+      run:
+        working-directory: apps/api
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.17'
+          otp-version: '27'
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Build release
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/emailgator_test' }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE || 'dummy_secret_key_base_for_build_only_replace_in_production' }}
+        run: mix release --quiet
 
       - name: Setup Fly.io
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly.io
-        working-directory: apps/api
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only
+
+      - name: Run database migrations
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl ssh console --app emailgator-api -C "/app/bin/emailgator_api eval \"Emailgator.Release.migrate()\""
+
+      - name: Health check
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          APP_URL=$(flyctl status --app emailgator-api --json | jq -r '.Hostname' || echo "")
+          if [ -n "$APP_URL" ]; then
+            APP_URL="https://${APP_URL}"
+          else
+            APP_URL="https://emailgator-api.fly.dev"
+          fi
+          echo "Checking health at: $APP_URL/health"
+          for i in {1..10}; do
+            if curl -f -s "$APP_URL/health" > /dev/null; then
+              echo "? Health check passed"
+              exit 0
+            fi
+            echo "? Waiting for service to be ready (attempt $i/10)..."
+            sleep 10
+          done
+          echo "? Health check failed after 10 attempts"
+          exit 1
 

@@ -1,0 +1,77 @@
+name: Sidecar CI/CD
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'sidecar/**'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'sidecar/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: sidecar
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Docker build
+        run: |
+          docker build -t emailgator-sidecar-test .
+          echo "✅ Docker build successful"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    defaults:
+      run:
+        working-directory: sidecar
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Fly.io
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only
+
+      - name: Health check
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          APP_URL=$(flyctl status --app emailgator-sidecar --json | jq -r '.Hostname' || echo "")
+          if [ -n "$APP_URL" ]; then
+            APP_URL="https://${APP_URL}"
+          else
+            APP_URL="https://emailgator-sidecar.fly.dev"
+          fi
+          echo "Checking health at: $APP_URL/health"
+          for i in {1..10}; do
+            if curl -f -s "$APP_URL/health" > /dev/null; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "⏳ Waiting for service to be ready (attempt $i/10)..."
+            sleep 10
+          done
+          echo "❌ Health check failed after 10 attempts"
+          exit 1

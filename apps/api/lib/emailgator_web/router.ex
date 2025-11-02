@@ -42,4 +42,7 @@ defmodule EmailgatorWeb.Router do
     get("/connect", GmailController, :connect)
     get("/callback", GmailController, :callback)
   end
+
+  # Health check endpoint (no auth required)
+  get("/health", EmailgatorWeb.FallbackController, :health)
 end

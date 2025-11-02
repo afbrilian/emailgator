@@ -1,0 +1,54 @@
+# Dependencies
+deps/
+_build/
+
+# Documentation
+*.md
+README*
+
+# Git
+.git/
+.gitignore
+
+# Development files
+.env
+.env.local
+.env.*.local
+
+# Test files
+test/
+mix.lock.bak
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage reports
+cover/
+
+# Temporary files
+tmp/
+temp/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+
+# Other application directories (not needed in API container)
+../web/
+../sidecar/
