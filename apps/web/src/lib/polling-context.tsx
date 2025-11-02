@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useLazyQuery } from '@apollo/client'
-import { PollingStatusDocument } from '@/gql'
+import { PollingStatusDocument } from '@/gql/graphql'
 
 interface PollingContextType {
   isPollingActive: boolean

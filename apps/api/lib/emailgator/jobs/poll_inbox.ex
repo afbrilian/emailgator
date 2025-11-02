@@ -33,15 +33,22 @@ defmodule Emailgator.Jobs.PollInbox do
               Logger.info("PollInbox: Queuing import jobs for #{length(message_ids)} message(s)")
             end
 
-            # Update history_id
+            # Update history_id (always update, even if it's nil, to track the current state)
             case Accounts.update_account(account, %{last_history_id: new_history_id}) do
               {:ok, _updated_account} ->
-                Logger.debug(
-                  "PollInbox: Updated account history_id to #{inspect(new_history_id)}"
+                Logger.info(
+                  "PollInbox: Updated account history_id from #{inspect(account.last_history_id)} to #{inspect(new_history_id)}"
+                )
+
+                # Verify the update persisted
+                reloaded_account = Accounts.get_account(account_id)
+
+                Logger.info(
+                  "PollInbox: Verified account.last_history_id is now: #{inspect(reloaded_account.last_history_id)}"
                 )
 
               {:error, reason} ->
-                Logger.warning("PollInbox: Failed to update history_id: #{inspect(reason)}")
+                Logger.error("PollInbox: Failed to update history_id: #{inspect(reason)}")
             end
 
             # Queue import jobs for each message

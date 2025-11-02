@@ -1,7 +1,8 @@
 'use client'
 
 import { useMutation } from '@apollo/client'
-import { useGetEmailQuery, GetEmailDocument, UnsubscribeEmailsDocument, DeleteEmailsDocument } from '@/gql'
+import { useGetEmailQuery, GetEmailDocument } from '@/gql/graphql'
+import { UnsubscribeEmailsDocument, DeleteEmailsDocument } from '@/gql'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -371,6 +372,106 @@ function EmailDetailPageContent() {
             </div>
           )}
         </div>
+
+        {/* Unsubscribe Attempts History */}
+        {/* @ts-ignore - unsubscribeAttempts field exists but types may not be generated yet */}
+        {(email as any)?.unsubscribeAttempts && (email as any).unsubscribeAttempts.length > 0 && (
+          <div className="card p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Unsubscribe History</h2>
+            <div className="space-y-3">
+              {/* @ts-ignore */}
+              {(email as any).unsubscribeAttempts.map((attempt: any) => (
+                <div
+                  key={attempt.id}
+                  className={`border rounded-lg p-4 ${
+                    attempt.status === 'success'
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-red-50 border-red-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {attempt.status === 'success' ? (
+                        <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                      <span
+                        className={`font-medium ${
+                          attempt.status === 'success' ? 'text-green-800' : 'text-red-800'
+                        }`}
+                      >
+                        {attempt.status === 'success' ? 'Success' : 'Failed'}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        via {attempt.method === 'http' ? 'HTTP' : attempt.method === 'playwright' ? 'Playwright' : 'None'}
+                      </span>
+                    </div>
+                    {attempt.insertedAt && (
+                      <span className="text-xs text-gray-500">
+                        {new Date(attempt.insertedAt).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    )}
+                  </div>
+                  {attempt.url && attempt.url !== '' && (
+                    <div className="text-sm text-gray-700 mb-2">
+                      <span className="font-medium">URL:</span>{' '}
+                      <a
+                        href={attempt.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline break-all"
+                      >
+                        {attempt.url.length > 60 ? `${attempt.url.substring(0, 60)}...` : attempt.url}
+                      </a>
+                    </div>
+                  )}
+                  {attempt.evidence && typeof attempt.evidence === 'object' && (
+                    <div className="text-sm text-gray-700">
+                      {attempt.evidence.error && (
+                        <div className="mt-2">
+                          <span className="font-medium">Error:</span>{' '}
+                          <span className="text-red-700">{attempt.evidence.error}</span>
+                        </div>
+                      )}
+                      {attempt.evidence.status && (
+                        <div className="mt-1">
+                          <span className="font-medium">Status:</span> {attempt.evidence.status}
+                        </div>
+                      )}
+                      {attempt.evidence.actions && Array.isArray(attempt.evidence.actions) && attempt.evidence.actions.length > 0 && (
+                        <div className="mt-1">
+                          <span className="font-medium">Actions:</span>{' '}
+                          <span className="text-gray-600">
+                            {attempt.evidence.actions.join(', ')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Email Body */}
         <div className="card p-8">

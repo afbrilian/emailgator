@@ -47,6 +47,15 @@ query GetEmail($id: ID!) {
       id
       name
     }
+    unsubscribeAttempts {
+      id
+      method
+      url
+      status
+      evidence
+      insertedAt
+      updatedAt
+    }
   }
 }
 

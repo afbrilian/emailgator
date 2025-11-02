@@ -1,5 +1,7 @@
 defmodule EmailgatorWeb.Schema.Resolvers.Email do
-  alias Emailgator.{Emails, Jobs.Unsubscribe, Repo}
+  alias Emailgator.{Emails, Repo}
+  alias Emailgator.Jobs.Unsubscribe, as: UnsubscribeJob
+  alias Emailgator.Unsubscribe
   alias Emailgator.Unsubscribe.UnsubscribeAttempt
   import Ecto.Query
 
@@ -45,7 +47,7 @@ defmodule EmailgatorWeb.Schema.Resolvers.Email do
         user_email_ids
         |> Enum.map(fn email_id ->
           case %{email_id: email_id}
-               |> Unsubscribe.new()
+               |> UnsubscribeJob.new()
                |> Oban.insert() do
             {:ok, _job} ->
               %{email_id: email_id, success: true, error: nil}
@@ -118,5 +120,14 @@ defmodule EmailgatorWeb.Schema.Resolvers.Email do
 
   def is_unsubscribed(_parent, _args, _info) do
     {:ok, false}
+  end
+
+  def unsubscribe_attempts(%Emails.Email{} = email, _args, _info) do
+    attempts = Unsubscribe.list_email_attempts(email.id)
+    {:ok, attempts}
+  end
+
+  def unsubscribe_attempts(_parent, _args, _info) do
+    {:ok, []}
   end
 end

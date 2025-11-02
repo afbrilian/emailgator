@@ -1,12 +1,12 @@
 defmodule Emailgator.Jobs.Unsubscribe do
   @moduledoc """
-  Attempts to unsubscribe from an email using HTTP or Playwright.
+  Attempts to unsubscribe from an email using the Playwright sidecar service.
+  The sidecar handles both simple unsubscribe links and complex forms.
   """
   use Oban.Worker, queue: :unsubscribe, max_attempts: 2
   alias Emailgator.{Emails, Unsubscribe}
 
-  use Tesla
-  adapter(Tesla.Adapter.Finch, name: Emailgator.Finch)
+  require Logger
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"email_id" => email_id}}) do
@@ -87,71 +87,41 @@ defmodule Emailgator.Jobs.Unsubscribe do
 
   defp attempt_unsubscribe(email, [url | rest]) do
     require Logger
-    Logger.info("Unsubscribe: Attempting to unsubscribe from #{url} for email #{email.id}")
 
-    case try_http_unsubscribe(url) do
-      {:ok, :success} ->
-        Logger.info("Unsubscribe: HTTP unsubscribe successful for email #{email.id}")
+    Logger.info(
+      "Unsubscribe: Attempting to unsubscribe from #{url} for email #{email.id} (using sidecar)"
+    )
+
+    # Always use Playwright sidecar for all unsubscribe attempts
+    # This ensures we can handle both simple links and forms, and verify actual success
+    case try_playwright_unsubscribe(url) do
+      {:ok, evidence} ->
+        Logger.info("Unsubscribe: Sidecar unsubscribe successful for email #{email.id}")
 
         Unsubscribe.create_attempt(%{
           email_id: email.id,
-          method: "http",
+          method: "playwright",
           url: url,
           status: "success",
-          evidence: %{response: "unsubscribed"}
+          evidence: evidence
         })
 
         :ok
 
-      {:error, :needs_playwright} ->
-        Logger.info("Unsubscribe: HTTP method failed, trying Playwright for email #{email.id}")
-        # Try Playwright sidecar
-        case try_playwright_unsubscribe(url) do
-          {:ok, evidence} ->
-            Logger.info("Unsubscribe: Playwright unsubscribe successful for email #{email.id}")
-
-            Unsubscribe.create_attempt(%{
-              email_id: email.id,
-              method: "playwright",
-              url: url,
-              status: "success",
-              evidence: evidence
-            })
-
-            :ok
-
-          {:error, reason} ->
-            Logger.warning(
-              "Unsubscribe: Playwright failed for email #{email.id}: #{inspect(reason)}"
-            )
-
-            # Try next URL if available
-            if Enum.empty?(rest) do
-              Unsubscribe.create_attempt(%{
-                email_id: email.id,
-                method: "playwright",
-                url: url,
-                status: "failed",
-                evidence: %{error: inspect(reason)}
-              })
-
-              {:error, "All unsubscribe attempts failed"}
-            else
-              attempt_unsubscribe(email, rest)
-            end
-        end
-
       {:error, reason} ->
+        Logger.warning("Unsubscribe: Sidecar failed for email #{email.id}: #{inspect(reason)}")
+
+        # Try next URL if available
         if Enum.empty?(rest) do
           Unsubscribe.create_attempt(%{
             email_id: email.id,
-            method: "http",
+            method: "playwright",
             url: url,
             status: "failed",
             evidence: %{error: inspect(reason)}
           })
 
-          {:error, reason}
+          {:error, "All unsubscribe attempts failed"}
         else
           attempt_unsubscribe(email, rest)
         end
@@ -188,9 +158,21 @@ defmodule Emailgator.Jobs.Unsubscribe do
           "preference",
           "berhenti",
           "cancel.subscription",
-          "remove.me"
+          "remove.me",
+          # Indonesian keywords for subscription management
+          # subscription
+          "langganan",
+          # subscription settings
+          "pengaturan.langganan",
+          # change settings
+          "ubah.pengaturan",
+          # manage subscription
+          "kelola.langganan",
+          # stop subscription
+          "hentikan.langganan"
         ]) or
-          (String.starts_with?(url, "mailto:") and String.contains?(url_lower, "unsubscribe"))
+          (String.starts_with?(url, "mailto:") and
+             String.contains?(url_lower, ["unsubscribe", "berhenti", "langganan"]))
       end)
       |> Enum.filter(fn url ->
         # Only keep http/https/mailto URLs (filter out javascript:, data:, etc.)
@@ -217,174 +199,148 @@ defmodule Emailgator.Jobs.Unsubscribe do
     |> String.replace("&nbsp;", " ")
   end
 
-  defp try_http_unsubscribe(url) do
-    require Logger
-
-    Logger.info("Unsubscribe: Attempting HTTP GET to #{url}")
-
-    # Use Task.async/yield with timeout to prevent hanging
-    task =
-      Task.async(fn ->
-        try do
-          # Use Finch directly with the named instance
-          request = Finch.build(:get, url)
-          Finch.request(request, Emailgator.Finch, receive_timeout: 15_000)
-        rescue
-          e ->
-            Logger.error("Unsubscribe: Exception in HTTP request: #{inspect(e)}")
-            {:error, inspect(e)}
-        catch
-          :exit, reason ->
-            Logger.error("Unsubscribe: Task exited: #{inspect(reason)}")
-            {:error, inspect(reason)}
-        end
-      end)
-
-    case Task.yield(task, 20_000) || Task.shutdown(task) do
-      {:ok, {:ok, %Finch.Response{status: status, body: body}}} ->
-        handle_finch_response(status, body)
-
-      {:ok, {:error, reason}} ->
-        Logger.error("Unsubscribe: Finch request error: #{inspect(reason)}")
-        {:error, inspect(reason)}
-
-      {:ok, other} ->
-        Logger.error("Unsubscribe: Unexpected Finch response: #{inspect(other)}")
-        {:error, "Unexpected response"}
-
-      nil ->
-        Logger.warning("Unsubscribe: HTTP request timed out after 20s")
-        {:error, "Request timeout"}
-
-      {:exit, reason} ->
-        Logger.error("Unsubscribe: HTTP request failed: #{inspect(reason)}")
-        {:error, "Request failed"}
-    end
-  end
-
-  defp handle_finch_response(status, _body) when status in [204, 302] do
-    require Logger
-
-    case status do
-      204 ->
-        Logger.info("Unsubscribe: HTTP 204 - Success (No Content)")
-        {:ok, :success}
-
-      302 ->
-        Logger.info("Unsubscribe: HTTP 302 - Success (Redirect)")
-        {:ok, :success}
-    end
-  end
-
-  defp handle_finch_response(200, body) do
-    require Logger
-
-    # 200 OK - need to check response body to determine success
-    body_str = if is_binary(body), do: String.downcase(body), else: ""
-
-    # Check for success indicators in response
-    success_indicators = [
-      "unsubscribed",
-      "successfully unsubscribed",
-      "opt-out successful",
-      "preference updated",
-      "subscription cancelled",
-      "you have been unsubscribed",
-      "unsubscribe successful"
-    ]
-
-    is_success = Enum.any?(success_indicators, &String.contains?(body_str, &1))
-
-    # Check if response is a form (needs Playwright)
-    has_form =
-      String.contains?(body_str, ["<form", "<input", "method=\"post\"", "method='post'"])
-
-    has_checkbox = String.contains?(body_str, ["<input type=\"checkbox\"", "type='checkbox'"])
-
-    cond do
-      is_success ->
-        Logger.info("Unsubscribe: HTTP 200 - Success confirmed from response body")
-        {:ok, :success}
-
-      has_form or has_checkbox ->
-        Logger.info("Unsubscribe: HTTP 200 - Response contains form/checkbox, needs Playwright")
-
-        {:error, :needs_playwright}
-
-      true ->
-        # 200 OK but unclear - assume success for now (GET on unsubscribe link usually works)
-        Logger.info("Unsubscribe: HTTP 200 - Assuming success (no form detected)")
-        {:ok, :success}
-    end
-  end
-
-  defp handle_finch_response(405, _body) do
-    require Logger
-    Logger.info("Unsubscribe: HTTP 405 - Method not allowed, requires form (Playwright)")
-    {:error, :needs_playwright}
-  end
-
-  defp handle_finch_response(400, _body) do
-    require Logger
-    Logger.info("Unsubscribe: HTTP 400 - Bad request, may need form (Playwright)")
-    {:error, :needs_playwright}
-  end
-
-  defp handle_finch_response(status, _body) do
-    require Logger
-    Logger.warning("Unsubscribe: HTTP #{status} - Unexpected status code")
-    {:error, "HTTP #{status}"}
-  end
-
   defp try_playwright_unsubscribe(url) do
-    sidecar_url = Application.get_env(:emailgator_api, :sidecar)[:url]
-    token = Application.get_env(:emailgator_api, :sidecar)[:token]
+    require Logger
 
-    client = Tesla.client([Tesla.Middleware.JSON])
+    sidecar_config = Application.get_env(:emailgator_api, :sidecar)
 
-    case Tesla.post(
-           client,
-           "#{sidecar_url}/run",
-           %{url: url},
-           headers: [{"x-internal", token}]
-         ) do
-      {:ok,
-       %Tesla.Env{
-         status: 200,
-         body: %{
-           "ok" => true,
-           "status" => status,
-           "screenshot_b64" => screenshot,
-           "actions" => actions
-         }
-       }} ->
-        evidence = %{
-          status: status,
-          screenshot: screenshot,
-          actions: actions || []
-        }
+    if is_nil(sidecar_config) do
+      Logger.error("Unsubscribe: Sidecar configuration not found")
+      {:error, "Sidecar configuration missing"}
+    else
+      sidecar_url = Keyword.get(sidecar_config, :url)
+      token = Keyword.get(sidecar_config, :token)
 
-        {:ok, evidence}
+      if is_nil(sidecar_url) or is_nil(token) do
+        Logger.error(
+          "Unsubscribe: Sidecar URL or token missing. URL: #{inspect(sidecar_url)}, Token: #{if token, do: "[REDACTED]", else: "nil"}"
+        )
 
-      {:ok, %Tesla.Env{status: 200, body: body}} when is_map(body) ->
-        # Handle older response format or responses without all fields
-        status = Map.get(body, "status", "unknown")
-        screenshot = Map.get(body, "screenshot_b64", "")
-        actions = Map.get(body, "actions", [])
+        {:error, "Sidecar configuration incomplete"}
+      else
+        Logger.info("Unsubscribe: Calling sidecar at #{sidecar_url}/run for URL: #{url}")
 
-        evidence = %{
-          status: status,
-          screenshot: screenshot,
-          actions: actions
-        }
+        Logger.info(
+          "Unsubscribe: Token length: #{String.length(to_string(token))}, first 4 chars: #{String.slice(to_string(token), 0..3)}..."
+        )
 
-        {:ok, evidence}
+        # Use Task with timeout to prevent hanging requests (90s timeout for Playwright)
+        task =
+          Task.async(fn ->
+            try do
+              # Use Finch directly with explicit timeout (90s for sidecar operations)
+              body_json = Jason.encode!(%{url: url})
 
-      {:ok, %Tesla.Env{body: body}} ->
-        {:error, inspect(body)}
+              request =
+                Finch.build(
+                  :post,
+                  "#{sidecar_url}/run",
+                  [{"content-type", "application/json"}, {"x-internal", token}],
+                  body_json
+                )
 
-      {:error, reason} ->
-        {:error, reason}
+              result = Finch.request(request, Emailgator.Finch, receive_timeout: 90_000)
+
+              # Convert Finch response to Tesla response format for compatibility
+              case result do
+                {:ok, %Finch.Response{status: status, body: body}} ->
+                  # Parse JSON body
+                  body_map =
+                    case Jason.decode(body) do
+                      {:ok, decoded} -> decoded
+                      {:error, _} -> body
+                    end
+
+                  # Convert to Tesla.Env format
+                  tesla_env = %Tesla.Env{
+                    status: status,
+                    body: body_map
+                  }
+
+                  {:ok, tesla_env}
+
+                {:error, reason} ->
+                  {:error, reason}
+              end
+            rescue
+              e ->
+                Logger.error("Unsubscribe: Exception in Task: #{inspect(e)}")
+                {:error, inspect(e)}
+            catch
+              :exit, reason ->
+                Logger.error("Unsubscribe: Task exited: #{inspect(reason)}")
+                {:error, inspect(reason)}
+            end
+          end)
+
+        Logger.debug("Unsubscribe: Waiting for sidecar response with 90s timeout...")
+
+        result =
+          case Task.yield(task, 90_000) || Task.shutdown(task) do
+            {:ok,
+             {:ok,
+              %Tesla.Env{
+                status: 200,
+                body: %{
+                  "ok" => true,
+                  "status" => status,
+                  "screenshot_b64" => screenshot,
+                  "actions" => actions
+                }
+              }}} ->
+              Logger.info("Unsubscribe: Sidecar returned success with status: #{status}")
+
+              evidence = %{
+                status: status,
+                screenshot: screenshot,
+                actions: actions || []
+              }
+
+              {:ok, evidence}
+
+            {:ok, {:ok, %Tesla.Env{status: 200, body: body}}} when is_map(body) ->
+              # Handle older response format or responses without all fields
+              status = Map.get(body, "status", "unknown")
+              screenshot = Map.get(body, "screenshot_b64", "")
+              actions = Map.get(body, "actions", [])
+
+              Logger.info(
+                "Unsubscribe: Sidecar returned success (legacy format) with status: #{status}"
+              )
+
+              evidence = %{
+                status: status,
+                screenshot: screenshot,
+                actions: actions
+              }
+
+              {:ok, evidence}
+
+            {:ok, {:ok, %Tesla.Env{status: status, body: body}}} ->
+              Logger.error(
+                "Unsubscribe: Sidecar returned error status #{status}: #{inspect(body)}"
+              )
+
+              {:error, "Sidecar returned status #{status}: #{inspect(body)}"}
+
+            {:ok, {:error, reason}} ->
+              Logger.error("Unsubscribe: Sidecar request error: #{inspect(reason)}")
+              {:error, inspect(reason)}
+
+            nil ->
+              Logger.error("Unsubscribe: Sidecar request timed out after 90 seconds")
+
+              {:error,
+               "Sidecar request timed out - is the sidecar running? (Check sidecar logs for progress)"}
+
+            {:exit, reason} ->
+              Logger.error("Unsubscribe: Task exited: #{inspect(reason)}")
+              {:error, "Request task failed"}
+          end
+
+        Logger.debug("Unsubscribe: Sidecar task result: #{inspect(result)}")
+        result
+      end
     end
   end
 end

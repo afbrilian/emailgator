@@ -335,7 +335,10 @@ defmodule Emailgator.Gmail do
               "Gmail.list_recent_messages: Found #{length(message_ids)} message(s) in inbox"
             )
 
-            {:ok, message_ids, nil}
+            # Get current historyId from profile API for tracking future changes
+            history_id = get_current_history_id(account.id, headers)
+
+            {:ok, message_ids, history_id}
 
           {:ok, {:ok, %Tesla.Env{status: status, body: body}}} ->
             Logger.error(
@@ -360,6 +363,61 @@ defmodule Emailgator.Gmail do
       Logger.debug("Gmail.list_recent_messages: Task result: #{inspect(result)}")
       result
     end
+  end
+
+  defp get_current_history_id(_account_id, headers) do
+    require Logger
+    Logger.info("Gmail.get_current_history_id: Fetching current historyId from profile")
+
+    # Use Task with timeout to prevent hanging requests
+    task =
+      Task.async(fn ->
+        try do
+          result = get("/users/me/profile", headers: headers)
+          Logger.debug("Gmail.get_current_history_id: Request completed in Task")
+          result
+        rescue
+          e ->
+            Logger.error("Gmail.get_current_history_id: Exception in Task: #{inspect(e)}")
+            {:error, inspect(e)}
+        catch
+          :exit, reason ->
+            Logger.error("Gmail.get_current_history_id: Task exited: #{inspect(reason)}")
+            {:error, inspect(reason)}
+        end
+      end)
+
+    Logger.debug("Gmail.get_current_history_id: Waiting for Task with 10s timeout...")
+
+    result =
+      case Task.yield(task, 10_000) || Task.shutdown(task) do
+        {:ok, {:ok, %Tesla.Env{status: 200, body: body}}} ->
+          history_id = body["historyId"]
+          Logger.info("Gmail.get_current_history_id: Got current historyId: #{history_id}")
+          history_id
+
+        {:ok, {:ok, %Tesla.Env{status: status, body: body}}} ->
+          Logger.warning(
+            "Gmail.get_current_history_id: Failed to get profile: status #{status}, body: #{inspect(body)}"
+          )
+
+          nil
+
+        {:ok, {:error, reason}} ->
+          Logger.warning("Gmail.get_current_history_id: Request error: #{inspect(reason)}")
+          nil
+
+        nil ->
+          Logger.warning("Gmail.get_current_history_id: Request timed out after 10 seconds")
+          nil
+
+        {:exit, reason} ->
+          Logger.warning("Gmail.get_current_history_id: Task exited: #{inspect(reason)}")
+          nil
+      end
+
+    Logger.debug("Gmail.get_current_history_id: Result: #{inspect(result)}")
+    result
   end
 
   defp list_history(%Account{} = account, history_id) do

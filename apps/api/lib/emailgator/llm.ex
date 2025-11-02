@@ -123,7 +123,7 @@ defmodule Emailgator.LLM do
       Logger.debug("LLM.call_openai: Request body encoded, length: #{byte_size(body_json)} bytes")
 
       Logger.info(
-        "LLM.call_openai: Making request to OpenAI API (timeout: 30s), model: gpt-4o-mini"
+        "LLM.call_openai: Making request to OpenAI API (timeout: 60s), model: gpt-4o-mini"
       )
 
       # Use Task with timeout to prevent hanging requests
@@ -149,10 +149,10 @@ defmodule Emailgator.LLM do
           end
         end)
 
-      Logger.debug("LLM.call_openai: Waiting for Task with 30s timeout...")
+      Logger.debug("LLM.call_openai: Waiting for Task with 60s timeout...")
 
       result =
-        case Task.yield(task, 30_000) || Task.shutdown(task) do
+        case Task.yield(task, 60_000) || Task.shutdown(task) do
           {:ok,
            {:ok,
             %Tesla.Env{
@@ -178,7 +178,7 @@ defmodule Emailgator.LLM do
             {:error, reason}
 
           nil ->
-            Logger.error("LLM.call_openai: Request timed out after 30 seconds")
+            Logger.error("LLM.call_openai: Request timed out after 60 seconds")
             {:error, "Request timed out"}
 
           {:exit, reason} ->
