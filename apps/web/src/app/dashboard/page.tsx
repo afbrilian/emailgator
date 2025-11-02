@@ -1,11 +1,12 @@
 'use client'
 
-import { useQuery, useMutation, useLazyQuery } from '@apollo/client'
-import { GetMeDocument, GetAccountsDocument, GetCategoriesDocument, TriggerPollDocument, PollingStatusDocument } from '@/gql'
+import { useQuery, useMutation } from '@apollo/client'
+import { GetMeDocument, GetAccountsDocument, GetCategoriesDocument, TriggerPollDocument } from '@/gql'
 import Link from 'next/link'
 import Image from 'next/image'
 import { API_ENDPOINTS } from '@/lib/config'
 import { ProtectedRoute } from '@/lib/auth'
+import { usePolling } from '@/lib/polling-context'
 import { useState, useEffect } from 'react'
 import emailgatorLogo from '@/images/emailgator-logo.png'
 
@@ -13,54 +14,38 @@ function DashboardPageContent() {
   const { data: userData } = useQuery(GetMeDocument)
   const { data: accountsData, loading: accountsLoading } = useQuery(GetAccountsDocument)
   const { data: categoriesData, loading: categoriesLoading } = useQuery(GetCategoriesDocument)
-  const [isPolling, setIsPolling] = useState(false)
   const [triggerPoll, { loading: triggerLoading }] = useMutation(TriggerPollDocument)
-  const [checkPollingStatus, { data: pollingStatusData, stopPolling }] = useLazyQuery(PollingStatusDocument, {
-    fetchPolicy: 'network-only',
-  })
+  const { isPollingActive, startPolling, stopPolling } = usePolling()
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const accounts = accountsData?.accounts || []
   const categories = categoriesData?.categories || []
   const userName = userData?.me?.name || userData?.me?.email?.split('@')[0] || 'User'
-  const isPollingActive = pollingStatusData?.pollingStatus === true || isPolling
-
-  // Poll for status when isPolling is true
-  useEffect(() => {
-    if (isPolling) {
-      // Check immediately
-      checkPollingStatus()
-      
-      // Then poll every 2 seconds
-      const interval = setInterval(() => {
-        checkPollingStatus()
-      }, 2000)
-
-      return () => {
-        clearInterval(interval)
-      }
-    } else {
-      // Stop polling when isPolling becomes false
-      stopPolling()
-    }
-  }, [isPolling, checkPollingStatus, stopPolling])
-
-  // Stop polling when status becomes false
-  useEffect(() => {
-    if (pollingStatusData?.pollingStatus === false && isPolling) {
-      setIsPolling(false)
-    }
-  }, [pollingStatusData, isPolling])
+  
+  // Combined state for button disabled
+  const buttonDisabled = isPollingActive || accounts.length === 0 || triggerLoading || isRefreshing
 
   const handleRefresh = async () => {
+    if (accounts.length === 0 || buttonDisabled) return
+    
     try {
-      setIsPolling(true)
+      setIsRefreshing(true) // Disable button immediately
+      startPolling() // Start polling immediately to show banner
       await triggerPoll()
-      // Status checking will start automatically via useEffect
     } catch (error) {
       console.error('Failed to trigger poll:', error)
-      setIsPolling(false)
+      stopPolling() // Stop polling if mutation fails
+      setIsRefreshing(false) // Re-enable button on error
     }
+    // Note: isRefreshing will be reset when polling completes via isPollingActive
   }
+  
+  // Reset isRefreshing when polling is no longer active
+  useEffect(() => {
+    if (!isPollingActive && isRefreshing) {
+      setIsRefreshing(false)
+    }
+  }, [isPollingActive, isRefreshing])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
@@ -105,10 +90,10 @@ function DashboardPageContent() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleRefresh}
-                disabled={isPollingActive || triggerLoading}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={buttonDisabled}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed relative"
               >
-                {isPollingActive ? (
+                {buttonDisabled ? (
                   <>
                     <svg
                       className="w-5 h-5 animate-spin"

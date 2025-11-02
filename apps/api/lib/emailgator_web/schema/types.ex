@@ -44,6 +44,10 @@ defmodule EmailgatorWeb.Schema.Types do
     field(:inserted_at, :datetime)
     field(:updated_at, :datetime)
     field(:category, :category)
+
+    field(:is_unsubscribed, :boolean,
+      resolve: &EmailgatorWeb.Schema.Resolvers.Email.is_unsubscribed/3
+    )
   end
 
   object :unsubscribe_result do

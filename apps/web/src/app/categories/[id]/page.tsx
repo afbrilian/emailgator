@@ -88,14 +88,26 @@ function CategoryDetailPageContent() {
   const categoryName = category?.name || 'Category Emails'
 
   const handleSelectAll = () => {
-    if (selectedEmails.length === emails.length) {
+    // Filter out unsubscribed emails when selecting all
+    const unsubscribedEmailIds = emails
+      .filter((e: any) => e.isUnsubscribed)
+      .map((e: any) => e.id)
+    const subscribableEmails = emails
+      .filter((e: any) => !e.isUnsubscribed)
+      .map((e: any) => e.id)
+
+    if (selectedEmails.length === subscribableEmails.length) {
       setSelectedEmails([])
     } else {
-      setSelectedEmails(emails.map((e: any) => e.id))
+      setSelectedEmails(subscribableEmails)
     }
   }
 
   const handleToggleEmail = (emailId: string) => {
+    const email = emails.find((e: any) => e.id === emailId)
+    // Don't allow selecting unsubscribed emails
+    if (email?.isUnsubscribed) return
+    
     setSelectedEmails(prev =>
       prev.includes(emailId) ? prev.filter(id => id !== emailId) : [...prev, emailId]
     )
@@ -230,33 +242,49 @@ function CategoryDetailPageContent() {
               <label className="flex items-center gap-3 cursor-pointer group">
                 <input
                   type="checkbox"
-                  checked={selectedEmails.length === emails.length && emails.length > 0}
+                  checked={
+                    emails.length > 0 &&
+                    selectedEmails.length === emails.filter((e: any) => !e.isUnsubscribed).length &&
+                    emails.filter((e: any) => !e.isUnsubscribed).length > 0
+                  }
                   onChange={handleSelectAll}
                   className="w-5 h-5 rounded border-gray-300 text-[#FF385C] focus:ring-[#FF385C] cursor-pointer"
                 />
                 <span className="text-gray-700 font-medium group-hover:text-gray-900">
-                  Select all {emails.length} emails
+                  Select all {emails.filter((e: any) => !e.isUnsubscribed).length} subscribable emails
+                  {emails.filter((e: any) => e.isUnsubscribed).length > 0 && (
+                    <span className="text-gray-500 text-sm ml-2">
+                      ({emails.filter((e: any) => e.isUnsubscribed).length} already unsubscribed)
+                    </span>
+                  )}
                 </span>
               </label>
             </div>
 
             <div className="space-y-4">
-              {emails.map((email: any) => (
+              {emails.map((email: any) => {
+                const isUnsubscribed = email.isUnsubscribed || false
+                const isSelected = selectedEmails.includes(email.id)
+                
+                return (
                 <div
                   key={email.id}
                   className={`card p-6 transition-all duration-200 ${
-                    selectedEmails.includes(email.id)
+                    isSelected
                       ? 'ring-2 ring-[#FF385C] shadow-md'
                       : 'hover:shadow-md'
-                  }`}
+                  } ${isUnsubscribed ? 'opacity-75' : ''}`}
                 >
                   <div className="flex items-start gap-4">
                     <input
                       type="checkbox"
-                      checked={selectedEmails.includes(email.id)}
+                      checked={isSelected}
                       onChange={() => handleToggleEmail(email.id)}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-5 h-5 rounded border-gray-300 text-[#FF385C] focus:ring-[#FF385C] cursor-pointer mt-1"
+                      disabled={isUnsubscribed}
+                      className={`w-5 h-5 rounded border-gray-300 text-[#FF385C] focus:ring-[#FF385C] mt-1 ${
+                        isUnsubscribed ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                      }`}
                     />
                     <Link
                       href={`/emails/${email.id}`}
@@ -266,18 +294,32 @@ function CategoryDetailPageContent() {
                         <h3 className="text-xl font-semibold text-gray-900 pr-4">
                           {email.subject || '(No subject)'}
                         </h3>
-                        {email.archivedAt && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-3 py-1 rounded-full whitespace-nowrap">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            Archived
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {isUnsubscribed && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-3 py-1 rounded-full whitespace-nowrap">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              Unsubscribed
+                            </span>
+                          )}
+                          {email.archivedAt && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-3 py-1 rounded-full whitespace-nowrap">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              Archived
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm text-gray-600 mb-3 flex items-center gap-2">
                         <svg
@@ -320,7 +362,8 @@ function CategoryDetailPageContent() {
                     </Link>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </>
         )}

@@ -94,7 +94,7 @@ defmodule EmailgatorWeb.Schema.Resolvers.Account do
               from(j in Oban.Job,
                 where:
                   j.queue == "poll" and
-                    j.state == "executing" and
+                    j.state in ["available", "executing", "scheduled"] and
                     fragment("?->>'account_id'", j.args) == ^to_string(account_id)
               )
             else
@@ -120,7 +120,7 @@ defmodule EmailgatorWeb.Schema.Resolvers.Account do
                 from(j in Oban.Job,
                   where:
                     j.queue == "poll" and
-                      j.state == "executing" and
+                      j.state in ["available", "executing", "scheduled"] and
                       fragment("?->>'account_id'", j.args) == ^account_id_str
                 )
 

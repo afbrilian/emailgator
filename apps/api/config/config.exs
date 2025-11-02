@@ -24,6 +24,12 @@ config :emailgator_api, EmailgatorWeb.Endpoint,
   signing_salt: "emailgator_salt"
 
 # Oban configuration
+# Queue concurrency settings:
+# - poll: 1 (Gmail API polling - rate limited, keep low)
+# - import: 1 (Email import with LLM - rate limited, keep low)
+# - archive: 5 (Email archiving - can be higher)
+# - unsubscribe: 5 (Unsubscribe processing - increase for high volume)
+#   For production with thousands of unsubscribes, consider increasing to 10-20
 config :emailgator_api, Oban,
   repo: Emailgator.Repo,
   queues: [poll: 1, import: 1, archive: 5, unsubscribe: 5],

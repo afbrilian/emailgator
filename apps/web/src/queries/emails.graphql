@@ -13,6 +13,7 @@ query GetCategoryEmails($categoryId: ID!) {
     archivedAt
     insertedAt
     unsubscribeUrls
+    isUnsubscribed
   }
 }
 
@@ -41,6 +42,11 @@ query GetEmail($id: ID!) {
     archivedAt
     insertedAt
     updatedAt
+    isUnsubscribed
+    category {
+      id
+      name
+    }
   }
 }
 

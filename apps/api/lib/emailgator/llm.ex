@@ -81,7 +81,12 @@ defmodule Emailgator.LLM do
       "unsubscribe_urls": ["<url1>", "<url2>"]
     }
 
-    If no category matches well, choose the first category. Extract all unsubscribe URLs from headers and body.
+    If no category matches well, choose the first category. Extract ALL unsubscribe URLs from the email body text and HTML links. Look for patterns like:
+    - Links containing "unsubscribe", "opt-out", "opt out", "manage preferences", "email preferences", "berhenti berlangganan"
+    - mailto: links with subject containing "unsubscribe"
+    - URLs in text that clearly indicate unsubscribing
+
+    Return an empty array [] if no unsubscribe URLs are found. Only include actual URLs (http://, https://, or mailto:).
     """
   end
 

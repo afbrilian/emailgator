@@ -40,10 +40,25 @@ defmodule Emailgator.Jobs.ImportEmail do
             Logger.info("ImportEmail: Step 3 - Classifying email with LLM")
 
             case classify_email(account.user_id, email_data) do
-              {:ok, category, summary, urls} ->
-                Logger.info("ImportEmail: Step 4 - Saving email to database")
+              {:ok, category, summary, llm_urls} ->
+                Logger.info("ImportEmail: Step 4 - Combining unsubscribe URLs")
 
-                case save_email(account, category, email_data, message_id, summary, urls) do
+                # Combine header URLs with LLM-extracted URLs
+                header_urls = Map.get(email_data, :header_unsubscribe_urls, [])
+                all_unsubscribe_urls = (header_urls ++ llm_urls) |> Enum.uniq()
+
+                Logger.info(
+                  "ImportEmail: Found #{length(header_urls)} header URL(s) and #{length(llm_urls)} LLM URL(s), total: #{length(all_unsubscribe_urls)}"
+                )
+
+                case save_email(
+                       account,
+                       category,
+                       email_data,
+                       message_id,
+                       summary,
+                       all_unsubscribe_urls
+                     ) do
                   {:ok, _email} ->
                     Logger.info("ImportEmail: Step 5 - Queuing archive job")
 
@@ -93,6 +108,9 @@ defmodule Emailgator.Jobs.ImportEmail do
       body_text = extract_body_text(payload)
       body_html = extract_body_html(payload)
 
+      # Extract unsubscribe URLs from email headers (List-Unsubscribe header)
+      header_unsubscribe_urls = extract_unsubscribe_from_headers(payload)
+
       {:ok,
        %{
          subject: subject,
@@ -100,7 +118,8 @@ defmodule Emailgator.Jobs.ImportEmail do
          snippet: snippet,
          body_text: body_text,
          body_html: body_html,
-         gmail_message_id: id
+         gmail_message_id: id,
+         header_unsubscribe_urls: header_unsubscribe_urls
        }}
     rescue
       e ->
@@ -116,6 +135,73 @@ defmodule Emailgator.Jobs.ImportEmail do
   defp get_header(payload, name) do
     headers = Map.get(payload, "headers", [])
     Enum.find_value(headers, fn %{"name" => n, "value" => v} -> if n == name, do: v end) || ""
+  end
+
+  defp extract_unsubscribe_from_headers(payload) do
+    list_unsubscribe = get_header(payload, "List-Unsubscribe")
+    list_unsubscribe_post = get_header(payload, "List-Unsubscribe-Post")
+
+    urls = []
+
+    # Parse List-Unsubscribe header - can contain mailto: or http(s):// URLs
+    urls =
+      if list_unsubscribe != "" do
+        # List-Unsubscribe can have multiple URLs separated by commas, or be in angle brackets
+        list_unsubscribe
+        |> String.split([",", "<", ">"])
+        |> Enum.map(&String.trim/1)
+        |> Enum.filter(fn s ->
+          String.starts_with?(s, "http://") or String.starts_with?(s, "https://") or
+            String.starts_with?(s, "mailto:")
+        end)
+        |> Enum.concat(urls)
+      else
+        urls
+      end
+
+    # List-Unsubscribe-Post header typically doesn't contain URLs, but check just in case
+    urls =
+      if list_unsubscribe_post != "" do
+        list_unsubscribe_post
+        |> String.split([",", "<", ">"])
+        |> Enum.map(&String.trim/1)
+        |> Enum.filter(fn s ->
+          String.starts_with?(s, "http://") or String.starts_with?(s, "https://")
+        end)
+        |> Enum.concat(urls)
+      else
+        urls
+      end
+
+    # Also check for List-Unsubscribe headers in nested parts
+    all_headers = get_all_headers(payload)
+
+    list_unsubscribe_parts =
+      all_headers
+      |> Enum.filter(fn %{"name" => name} -> name == "List-Unsubscribe" end)
+      |> Enum.flat_map(fn %{"value" => value} ->
+        value
+        |> String.split([",", "<", ">"])
+        |> Enum.map(&String.trim/1)
+        |> Enum.filter(fn s ->
+          String.starts_with?(s, "http://") or String.starts_with?(s, "https://") or
+            String.starts_with?(s, "mailto:")
+        end)
+      end)
+
+    (urls ++ list_unsubscribe_parts)
+    |> Enum.uniq()
+    |> Enum.filter(&(&1 != ""))
+  end
+
+  defp get_all_headers(payload) do
+    headers = Map.get(payload, "headers", [])
+
+    # Also check headers in nested parts
+    parts = Map.get(payload, "parts", [])
+    part_headers = Enum.flat_map(parts, &Map.get(&1, "headers", []))
+
+    headers ++ part_headers
   end
 
   defp extract_body_text(payload) do

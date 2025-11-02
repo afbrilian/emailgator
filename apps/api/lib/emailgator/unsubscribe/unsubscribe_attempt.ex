@@ -20,8 +20,8 @@ defmodule Emailgator.Unsubscribe.UnsubscribeAttempt do
   def changeset(attempt, attrs) do
     attempt
     |> cast(attrs, [:method, :url, :status, :evidence, :email_id])
-    |> validate_required([:method, :url, :status, :email_id])
+    |> validate_required([:method, :status, :email_id])
     |> validate_inclusion(:status, ["success", "failed"])
-    |> validate_inclusion(:method, ["http", "playwright"])
+    |> validate_inclusion(:method, ["http", "playwright", "none"])
   end
 end
