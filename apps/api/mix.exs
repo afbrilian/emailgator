@@ -10,7 +10,8 @@ defmodule EmailgatorApi.MixProject do
       compilers: Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -64,7 +65,8 @@ defmodule EmailgatorApi.MixProject do
 
       # Testing
       {:mox, "~> 1.1", only: :test},
-      {:hammox, "~> 0.7", only: :test}
+      {:hammox, "~> 0.7", only: :test},
+      {:excoveralls, "~> 0.18", only: :test}
     ]
   end
 
@@ -73,7 +75,8 @@ defmodule EmailgatorApi.MixProject do
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
+      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      "test.coverage": ["coveralls.json"]
     ]
   end
 end

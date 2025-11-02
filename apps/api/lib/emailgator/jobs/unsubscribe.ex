@@ -37,10 +37,11 @@ defmodule Emailgator.Jobs.Unsubscribe do
               )
 
               # Create attempt record even when no URLs found, so user knows why it failed
+              # Use a placeholder URL since the column is not null
               case Unsubscribe.create_attempt(%{
                      email_id: email.id,
                      method: "none",
-                     url: "",
+                     url: "none://no-unsubscribe-url-found",
                      status: "failed",
                      evidence: %{error: "No unsubscribe URLs found in email or HTML body"}
                    }) do

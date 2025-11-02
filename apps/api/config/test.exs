@@ -33,3 +33,7 @@ config :emailgator_api, :sidecar,
 # Sentry - not included in test (only in production)
 
 config :logger, level: :warning
+
+# ExCoveralls configuration
+config :excoveralls,
+  tool: ExCoveralls
