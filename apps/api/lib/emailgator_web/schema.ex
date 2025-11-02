@@ -21,6 +21,10 @@ defmodule EmailgatorWeb.Schema do
       resolve(&EmailgatorWeb.Schema.Resolvers.Account.list/3)
     end
 
+    field :connect_gmail_url, :string do
+      resolve(&EmailgatorWeb.Schema.Resolvers.Account.get_connect_url/3)
+    end
+
     field :category_emails, list_of(:email) do
       arg(:category_id, non_null(:id))
       resolve(&EmailgatorWeb.Schema.Resolvers.Email.list_by_category/3)
@@ -46,15 +50,6 @@ defmodule EmailgatorWeb.Schema do
     field :delete_category, :category do
       arg(:id, non_null(:id))
       resolve(&EmailgatorWeb.Schema.Resolvers.Category.delete/3)
-    end
-
-    field :connect_account, :account do
-      arg(:email, non_null(:string))
-      arg(:access_token, non_null(:string))
-      arg(:refresh_token, non_null(:string))
-      arg(:expires_at, :datetime)
-
-      resolve(&EmailgatorWeb.Schema.Resolvers.Account.connect/3)
     end
 
     field :disconnect_account, :account do

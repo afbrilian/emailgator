@@ -50,6 +50,11 @@ defmodule EmailgatorApi.MixProject do
 
       # OAuth
       {:assent, "~> 0.2"},
+      {:ssl_verify_fun, "~> 1.1"},
+      {:certifi, "~> 2.4"},
+
+      # Environment variables
+      {:dotenv, "~> 3.0", only: [:dev, :test]},
 
       # Encryption for tokens
       {:cloak, "~> 1.1"},

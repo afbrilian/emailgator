@@ -25,12 +25,21 @@ defmodule EmailgatorWeb.Router do
     )
   end
 
-  # OAuth routes
+  # OAuth routes (user sign-in)
   scope "/auth", EmailgatorWeb do
     pipe_through(:api)
 
     get("/google", AuthController, :request)
     get("/google/callback", AuthController, :callback)
+    get("/logout", AuthController, :delete)
     post("/logout", AuthController, :delete)
+  end
+
+  # Gmail account connection routes (separate OAuth with Gmail scopes)
+  scope "/gmail", EmailgatorWeb do
+    pipe_through(:api)
+
+    get("/connect", GmailController, :connect)
+    get("/callback", GmailController, :callback)
   end
 end

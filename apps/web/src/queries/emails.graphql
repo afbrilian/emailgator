@@ -1,0 +1,30 @@
+query GetCategoryEmails($categoryId: ID!) {
+  category(id: $categoryId) {
+    id
+    name
+    description
+  }
+  categoryEmails(categoryId: $categoryId) {
+    id
+    subject
+    from
+    snippet
+    summary
+    archivedAt
+    insertedAt
+    unsubscribeUrls
+  }
+}
+
+mutation DeleteEmails($emailIds: [ID!]!) {
+  deleteEmails(emailIds: $emailIds)
+}
+
+mutation UnsubscribeEmails($emailIds: [ID!]!) {
+  unsubscribeEmails(emailIds: $emailIds) {
+    emailId
+    success
+    error
+  }
+}
+

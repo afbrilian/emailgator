@@ -39,6 +39,10 @@ config :emailgator_api, Oban,
 config :tesla, adapter: Tesla.Adapter.Finch
 config :tesla, disable_deprecated_builder_warning: true
 
+# Assent SSL configuration
+# With ssl_verify_fun dependency, Assent will use it automatically
+# No additional config needed - the dependency handles SSL verification
+
 # Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",

@@ -3,7 +3,7 @@ defmodule EmailgatorWeb.Schema.Types do
 
   scalar :datetime do
     description("ISO8601 datetime")
-    serialize(&DateTime.to_iso8601/1)
+    serialize(&serialize_datetime/1)
     parse(&parse_datetime/1)
   end
 
@@ -50,6 +50,21 @@ defmodule EmailgatorWeb.Schema.Types do
     field(:success, :boolean)
     field(:error, :string)
   end
+
+  # Serialize DateTime or NaiveDateTime to ISO8601 string
+  defp serialize_datetime(%DateTime{} = datetime) do
+    DateTime.to_iso8601(datetime)
+  end
+
+  defp serialize_datetime(%NaiveDateTime{} = naive_datetime) do
+    # Convert NaiveDateTime to DateTime in UTC (Ecto stores in UTC)
+    naive_datetime
+    |> DateTime.from_naive!("Etc/UTC")
+    |> DateTime.to_iso8601()
+  end
+
+  defp serialize_datetime(nil), do: nil
+  defp serialize_datetime(_), do: nil
 
   defp parse_datetime(%Absinthe.Blueprint.Input.String{value: value}) do
     case DateTime.from_iso8601(value) do

@@ -1,0 +1,26 @@
+query GetMe {
+  me {
+    id
+    email
+    name
+  }
+}
+
+query GetAccounts {
+  accounts {
+    id
+    email
+    insertedAt
+  }
+}
+
+query GetConnectGmailUrl {
+  connectGmailUrl
+}
+
+mutation DisconnectAccount($id: ID!) {
+  disconnectAccount(id: $id) {
+    id
+  }
+}
+

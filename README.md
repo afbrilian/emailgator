@@ -71,6 +71,40 @@ pnpm dev
 
 Frontend runs on `http://localhost:3000`
 
+#### Generate GraphQL Types
+
+After the backend API is running, generate TypeScript types from the GraphQL schema:
+
+```bash
+cd apps/web
+npm run codegen
+```
+
+**Important**: 
+- The Phoenix API must be running (`mix phx.server`) for codegen to work, as it introspects the GraphQL schema from the running server.
+- Codegen uses `NEXT_PUBLIC_API_URL` environment variable (defaults to `http://localhost:4000`)
+- For different environments, set the variable before running:
+  ```bash
+  # Local (default)
+  npm run codegen
+  
+  # Dev environment
+  NEXT_PUBLIC_API_URL=https://api-dev.example.com npm run codegen
+  
+  # Production
+  NEXT_PUBLIC_API_URL=https://api.example.com npm run codegen
+  ```
+
+This generates TypeScript types and React hooks in `src/gql/` from your GraphQL queries.
+
+**Note**: The `src/gql/` directory is **generated code** and is **ignored by git** (see `.gitignore`). It is automatically generated during the build process via the `prebuild` hook in `package.json`. 
+
+- **Local development**: Run `npm run codegen` manually after starting the API server
+- **Production builds**: Codegen runs automatically via `prebuild` hook before `npm run build`
+- **CI/CD**: No extra steps needed - codegen runs as part of the build process
+
+**Automatic Fix**: A post-generation script automatically removes duplicate DocumentNode exports that codegen sometimes generates. The `postcodegen` npm hook runs this automatically after each codegen run, so you don't need to worry about duplicates.
+
 ### 4. Sidecar (Unsubscribe Agent)
 
 ```bash
@@ -103,8 +137,15 @@ SENTRY_DSN=<optional>
 ### Frontend (`apps/web/.env.local`)
 
 ```bash
+# Backend API URL (used for all API calls, OAuth redirects, and GraphQL)
 NEXT_PUBLIC_API_URL=http://localhost:4000
 ```
+
+**Note**: 
+- The frontend uses `src/lib/config.ts` to centralize all API endpoints
+- All hardcoded URLs have been replaced with environment variables
+- GraphQL codegen also uses `NEXT_PUBLIC_API_URL` for multi-environment support
+- See [`ENV_VARIABLES.md`](./ENV_VARIABLES.md) for complete environment variable documentation
 
 ### Sidecar (`sidecar/.env`)
 
@@ -116,18 +157,38 @@ INTERNAL_TOKEN=supersecret
 
 ## Gmail OAuth Setup
 
+⚠️ **Required**: You must set up Google OAuth credentials before the app will work. See detailed instructions in [`GOOGLE_OAUTH_SETUP.md`](./GOOGLE_OAUTH_SETUP.md).
+
+### Quick Setup
+
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable Gmail API
-4. Create OAuth 2.0 credentials
-5. Add redirect URI: `http://localhost:4000/auth/google/callback`
-6. **Add test users**: Add your email (and reviewer's email) to test users list (unverified app)
+2. Create a new project or select existing
+3. Enable **Google+ API** (required for OAuth)
+4. Enable **Gmail API** (for email access)
+5. Create OAuth 2.0 credentials (Web application)
+6. Add redirect URIs:
+   - `http://localhost:4000/auth/google/callback` (user sign-in)
+   - `http://localhost:4000/gmail/callback` (Gmail account connection)
+7. **Configure OAuth consent screen** (External, add yourself as test user)
+8. **Copy Client ID and Client Secret**
+9. Create `apps/api/.env` file:
+   ```bash
+   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   GOOGLE_OAUTH_REDIRECT_URL=http://localhost:4000/auth/google/callback
+   ```
+10. Restart Phoenix server
 
 Required scopes:
+- `email` and `profile` (user sign-in)
 - `https://www.googleapis.com/auth/gmail.readonly`
 - `https://www.googleapis.com/auth/gmail.modify`
 
+**See [`GOOGLE_OAUTH_SETUP.md`](./GOOGLE_OAUTH_SETUP.md) for step-by-step instructions with screenshots.**
+
 ## Code Formatting
+
+### Backend (Elixir/Phoenix)
 
 Elixir has a built-in formatter. To format all code:
 
@@ -137,6 +198,28 @@ mix format
 ```
 
 The formatter configuration is in `apps/api/.formatter.exs`.
+
+### Frontend (Next.js/TypeScript)
+
+The frontend uses ESLint and Prettier for linting and formatting:
+
+```bash
+cd apps/web
+
+# Check for linting errors
+npm run lint
+
+# Auto-fix linting errors
+npm run lint:fix
+
+# Format all code with Prettier
+npm run format
+
+# Check formatting without making changes
+npm run format:check
+```
+
+**Auto-formatting in VS Code**: The project includes `.vscode/settings.json` to automatically format on save using Prettier and fix ESLint errors.
 
 ## Testing
 

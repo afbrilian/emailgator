@@ -62,4 +62,44 @@ defmodule Emailgator.Accounts do
     from(a in Account, where: not is_nil(a.refresh_token))
     |> Repo.all()
   end
+
+  @doc """
+  Get account with valid access token, refreshing if needed.
+  """
+  def get_account_with_valid_token(account_id) do
+    case get_account(account_id) do
+      nil ->
+        nil
+
+      account ->
+        if token_expired?(account) do
+          refresh_account_token(account)
+        else
+          {:ok, account}
+        end
+    end
+  end
+
+  defp token_expired?(%Account{} = account) do
+    case account.expires_at do
+      nil -> true
+      expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) != :lt
+    end
+  end
+
+  defp refresh_account_token(%Account{} = account) do
+    case Emailgator.Gmail.refresh_token(account) do
+      {:ok, new_token, expires_at} ->
+        case update_account(account, %{
+               access_token: new_token,
+               expires_at: expires_at
+             }) do
+          {:ok, updated_account} -> {:ok, updated_account}
+          error -> error
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 end

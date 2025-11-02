@@ -9,13 +9,18 @@ defmodule EmailgatorWeb.Schema.Resolvers.Account do
     {:error, "Not authenticated"}
   end
 
-  def connect(_parent, args, %{context: %{current_user: %{id: user_id}}}) do
-    args
-    |> Map.put(:user_id, user_id)
-    |> Accounts.create_account()
+  def get_connect_url(_parent, _args, %{context: %{current_user: user}}) when not is_nil(user) do
+    # Return the URL to redirect to for Gmail OAuth
+    # Frontend will handle the redirect
+    endpoint_config = Application.get_env(:emailgator_api, EmailgatorWeb.Endpoint, [])
+    host = Keyword.get(endpoint_config, :url, []) |> Keyword.get(:host, "localhost")
+    port = 4000
+    scheme = "http"
+
+    {:ok, "#{scheme}://#{host}:#{port}/gmail/connect"}
   end
 
-  def connect(_parent, _args, _context) do
+  def get_connect_url(_parent, _args, _context) do
     {:error, "Not authenticated"}
   end
 

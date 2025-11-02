@@ -1,5 +1,18 @@
 import Config
 
+# Load .env file for dev and test environments at runtime
+if config_env() in [:dev, :test] do
+  # Try to load dotenv if available
+  case Code.ensure_loaded(Dotenv) do
+    {:module, Dotenv} ->
+      Dotenv.load()
+      IO.puts("✅ Loaded .env file via dotenv")
+
+    {:error, _reason} ->
+      IO.puts("⚠️  Dotenv not available - using environment variables or defaults")
+  end
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -50,3 +63,5 @@ if config_env() == :prod do
     url: System.fetch_env!("SIDECAR_URL"),
     token: System.fetch_env!("SIDECAR_TOKEN")
 end
+
+# Runtime config for dev/test (already handled above)

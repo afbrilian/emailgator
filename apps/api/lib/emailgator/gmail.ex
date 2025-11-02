@@ -139,20 +139,22 @@ defmodule Emailgator.Gmail do
     end
   end
 
-  defp extract_latest_history_id(history) when is_list(history) do
+  defp extract_latest_history_id(history) when is_list(history) and length(history) > 0 do
     history
     |> Enum.map(& &1["id"])
-    |> Enum.max()
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> nil
+      ids -> Enum.max(ids)
+    end
   end
 
   defp extract_latest_history_id(_), do: nil
 
   defp auth_headers(account_id) do
-    # This should fetch and refresh token if needed
-    # For now, simplified - will be enhanced in account context
-    case Emailgator.Accounts.get_account(account_id) do
-      nil -> []
-      account -> [{"Authorization", "Bearer #{account.access_token}"}]
+    case Emailgator.Accounts.get_account_with_valid_token(account_id) do
+      {:ok, account} -> [{"Authorization", "Bearer #{account.access_token}"}]
+      _ -> []
     end
   end
 end

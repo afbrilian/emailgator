@@ -1,12 +1,12 @@
-import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
+import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client'
+import { API_ENDPOINTS } from './config'
 
 const httpLink = createHttpLink({
-  uri: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/graphql`,
+  uri: API_ENDPOINTS.graphql,
   credentials: 'include', // Important: sends cookies
-});
+})
 
 export const client = new ApolloClient({
   link: httpLink,
   cache: new InMemoryCache(),
-});
-
+})
