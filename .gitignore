@@ -13,7 +13,6 @@ erl_crash.dump
 # Phoenix
 /apps/api/priv/static/
 /apps/api/priv/cert_dev_key.pem
-/apps/api/priv/repo/migrations/
 
 # Node.js
 node_modules/
