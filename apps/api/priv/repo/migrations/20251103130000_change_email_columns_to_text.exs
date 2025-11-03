@@ -19,3 +19,4 @@ defmodule Emailgator.Repo.Migrations.ChangeEmailColumnsToText do
     end
   end
 end
+
