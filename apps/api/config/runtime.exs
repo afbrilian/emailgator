@@ -26,7 +26,9 @@ if config_env() == :prod do
   config :emailgator_api, Emailgator.Repo,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    socket_options: maybe_ipv6
+    socket_options: maybe_ipv6,
+    # Disable prepared statements to work with PgBouncer/transaction pooling (e.g., Supabase)
+    prepare: :unnamed
 
   secret_key_base =
     System.get_env("SECRET_KEY_BASE") ||
