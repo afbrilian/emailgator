@@ -18,7 +18,7 @@ defmodule EmailgatorApi.MixProject do
   def application do
     [
       mod: {Emailgator.Application, []},
-      extra_applications: [:logger, :runtime_tools, :oban, :hackney]
+      extra_applications: [:logger, :runtime_tools, :oban]
     ]
   end
 
