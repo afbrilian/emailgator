@@ -10,14 +10,16 @@ defmodule EmailgatorWeb.Schema.Resolvers.Account do
   end
 
   def get_connect_url(_parent, _args, %{context: %{current_user: user}}) when not is_nil(user) do
-    # Return the URL to redirect to for Gmail OAuth
-    # Frontend will handle the redirect
-    endpoint_config = Application.get_env(:emailgator_api, EmailgatorWeb.Endpoint, [])
-    host = Keyword.get(endpoint_config, :url, []) |> Keyword.get(:host, "localhost")
-    port = 4000
-    scheme = "http"
+    # Build absolute URL to the Gmail connect endpoint using Endpoint URL config
+    endpoint_url =
+      Application.get_env(:emailgator_api, EmailgatorWeb.Endpoint, []) |> Keyword.get(:url, [])
 
-    {:ok, "#{scheme}://#{host}:#{port}/gmail/connect"}
+    scheme = Keyword.get(endpoint_url, :scheme, "http")
+    host = Keyword.get(endpoint_url, :host, "localhost")
+    port = Keyword.get(endpoint_url, :port, 4000)
+    port_part = if port in [80, 443], do: "", else: ":#{port}"
+
+    {:ok, "#{scheme}://#{host}#{port_part}/gmail/connect"}
   end
 
   def get_connect_url(_parent, _args, _context) do

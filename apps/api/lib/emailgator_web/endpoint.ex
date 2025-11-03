@@ -29,10 +29,10 @@ defmodule EmailgatorWeb.Endpoint do
       ),
     encryption_salt:
       Application.compile_env(:emailgator_api, :cookie_enc_salt, "emailgator_enc_salt"),
-    # In production, allow cross-site cookies for the Vercel app
-    # - SameSite=None is required for third-party requests with credentials
-    # - Secure=true is required by browsers when SameSite=None
-    same_site: if(Mix.env() == :prod, do: "None", else: "Lax"),
+    # Allow cross-site cookies (frontend and API are on different origins)
+    # - SameSite=None is required so the browser includes cookies on cross-site POSTs
+    # - Secure=true is required in production; browsers allow insecure on localhost
+    same_site: "None",
     secure: Mix.env() == :prod
   )
 
