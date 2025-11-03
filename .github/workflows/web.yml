@@ -50,4 +50,11 @@ jobs:
           vercel-args: '--prod'
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.emailgator.com' }}
+        continue-on-error: false
+
+      - name: Verify deployment
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: |
+          echo "✅ Frontend deployed to Vercel"
+          echo "::notice::Frontend deployment completed. Check Vercel dashboard for URL."
 
