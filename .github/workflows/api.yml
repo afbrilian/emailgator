@@ -102,7 +102,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           echo "🔄 Running database migrations..."
-          flyctl ssh console --app emailgator-api -C "/app/bin/emailgator_api eval \"Emailgator.Release.migrate()\""
+          flyctl ssh console --app emailgator -C "/app/bin/emailgator_api eval \"Emailgator.Release.migrate()\""
           if [ $? -ne 0 ]; then
             echo "::error::Database migration failed. Check logs for details."
             exit 1
@@ -114,11 +114,11 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          APP_URL=$(flyctl status --app emailgator-api --json | jq -r '.Hostname' || echo "")
+          APP_URL=$(flyctl status --app emailgator --json | jq -r '.Hostname' || echo "")
           if [ -n "$APP_URL" ]; then
             APP_URL="https://${APP_URL}"
           else
-            APP_URL="https://emailgator-api.fly.dev"
+            APP_URL="https://emailgator.fly.dev"
           fi
           echo "Checking health at: $APP_URL/health"
           for i in {1..10}; do

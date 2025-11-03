@@ -13,6 +13,7 @@ on:
     workflows: ["API CI/CD"]
     types:
       - completed
+  workflow_dispatch:
 
 jobs:
   test:

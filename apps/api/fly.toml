@@ -1,8 +1,8 @@
 # fly.toml for EmailGator API (Phoenix Backend)
 # Deploy with: fly deploy
-# App name will be set when you first deploy: fly apps create emailgator-api
+# App name will be set when you first deploy: fly apps create emailgator
 
-app = "emailgator-api"
+app = "emailgator"
 primary_region = "iad"
 
 [build]
@@ -10,7 +10,7 @@ primary_region = "iad"
 
 [env]
   PORT = "4000"
-  PHX_HOST = "emailgator-api.fly.dev"
+  PHX_HOST = "emailgator.fly.dev"
   POOL_SIZE = "10"
 
 [http_service]
