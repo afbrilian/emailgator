@@ -28,17 +28,16 @@ RUN MIX_ENV=prod mix compile && \
     MIX_ENV=prod mix release
 
 # Production stage
-FROM alpine:3.19
+FROM debian:bookworm-slim
 
 # Install runtime dependencies
-RUN apk add --no-cache \
-    openssl \
-    ncurses-libs \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    libssl3 \
+    openssl \
     bash \
     wget \
-    libstdc++ \
-    libgcc
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -46,8 +45,8 @@ WORKDIR /app
 COPY --from=build /app/_build/prod/rel/emailgator_api .
 
 # Create a non-root user
-RUN addgroup -S appgroup && \
-    adduser -S appuser -G appgroup && \
+RUN groupadd -r appgroup && \
+    useradd -r -g appgroup appuser && \
     chown -R appuser:appgroup /app
 
 USER appuser

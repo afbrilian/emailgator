@@ -44,7 +44,8 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
-    secret_key_base: secret_key_base
+    secret_key_base: secret_key_base,
+    server: true
 
   config :emailgator_api, :openai,
     api_key: System.fetch_env!("OPENAI_API_KEY"),
