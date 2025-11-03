@@ -60,6 +60,21 @@ if config_env() == :prod do
   config :emailgator_api, :sidecar,
     url: System.fetch_env!("SIDECAR_URL"),
     token: System.fetch_env!("SIDECAR_TOKEN")
+
+  # Sentry configuration - only enabled if DSN is set
+  sentry_dsn = System.get_env("SENTRY_DSN")
+
+  if is_nil(sentry_dsn) or sentry_dsn == "" do
+    # Disable Sentry when DSN is absent so boot never fails
+    config :sentry, enable: false
+  else
+    config :sentry,
+      dsn: sentry_dsn,
+      environment_name: System.get_env("SENTRY_ENVIRONMENT") || "production",
+      # optional but nice on Fly:
+      release: System.get_env("FLY_IMAGE_REF") || System.get_env("RELEASE_SHA"),
+      server_name: System.get_env("FLY_MACHINE_ID")
+  end
 end
 
 # Runtime config for dev/test (already handled above)
