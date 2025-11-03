@@ -15,7 +15,14 @@ defmodule EmailgatorWeb.Schema.Resolvers.Account do
       Application.get_env(:emailgator_api, EmailgatorWeb.Endpoint, []) |> Keyword.get(:url, [])
 
     scheme = Keyword.get(endpoint_url, :scheme, "http")
-    host = Keyword.get(endpoint_url, :host, "localhost")
+    raw_host = Keyword.get(endpoint_url, :host, "localhost")
+    # Normalize host in case PHX_HOST incorrectly includes a scheme
+    host =
+      raw_host
+      |> to_string()
+      |> String.replace(~r/^https?:\/\//, "")
+      |> String.trim_leading("/")
+
     port = Keyword.get(endpoint_url, :port, 4000)
     port_part = if port in [80, 443], do: "", else: ":#{port}"
 
