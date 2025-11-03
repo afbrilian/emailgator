@@ -1,62 +1,59 @@
 # --- build stage (Alpine / musl) ---
 FROM elixir:1.17-otp-27-alpine AS build
 
-# Install build dependencies
+# Build deps
 RUN apk add --no-cache build-base git npm
 
-# Set working directory
 WORKDIR /app
 
-# Install hex and rebar
+# Hex / Rebar
 RUN mix local.hex --force && mix local.rebar --force
 
-# Copy dependency files
+# Deps
 COPY mix.exs mix.lock ./
 COPY config config
-
-# Install dependencies
 RUN MIX_ENV=prod mix deps.get --only prod && MIX_ENV=prod mix deps.compile
 
-# Copy source code
+# App code
 COPY lib lib
 COPY priv priv
-# If you have assets, also copy and build them here
+# If you have assets, uncomment:
 # COPY assets assets
 # RUN MIX_ENV=prod mix assets.deploy
 
-# Build release
+# Release (includes ERTS by default)
 RUN MIX_ENV=prod mix compile && MIX_ENV=prod mix release
 
 # --- runtime stage (Alpine / musl) ---
 FROM alpine:3.20
 
-# Install runtime libs for OTP 27
+# Runtime libs for OTP 27 + Phoenix healthcheck
 RUN apk add --no-cache \
     openssl \
     ncurses-libs \
+    libstdc++ \
+    libgcc \
     bash \
     wget \
     ca-certificates
 
 WORKDIR /app
 
-# Copy the full release
+# Copy the full release (includes erts-*/bin)
 COPY --from=build /app/_build/prod/rel/emailgator_api /app
 
-# Non-root user
+# Non-root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
 USER appuser
 
-# Environment
+# Env
 ENV PHX_SERVER=true LANG=C.UTF-8
 
-# Expose port
 EXPOSE 4000
 
-# Health check
+# Health check (make sure /health exists in your app)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1
 
-# Start release
 ENTRYPOINT ["/app/bin/emailgator_api"]
 CMD ["start"]
