@@ -79,15 +79,25 @@ fly apps create emailgator-sidecar
 3. Configure project:
    - Framework Preset: Next.js
    - Root Directory: `apps/web`
-   - Build Command: `npm run build`
+   - Build Command: `npm run build:with-codegen`
    - Output Directory: `.next`
 4. Save project (deployment will be configured via GitHub Actions later)
 
+**Note**: The build command includes GraphQL codegen. For first deployment before the API is live, the frontend will use existing generated types from the repository. After the backend is deployed, codegen will run against the live API.
+
 ### Phase 2: Configure Secrets
+
+**Choose your approach:**
+- **Recommended**: Manual setup via Fly.io/Vercel dashboards - See [MANUAL_VARIABLES_SETUP.md](./MANUAL_VARIABLES_SETUP.md)
+- **Alternative**: Use the commands below to set secrets via CLI (requires terraform output)
 
 #### 2.1 Fly.io Secrets (Backend API)
 
 Set all required secrets for the backend:
+
+**Quick Manual Setup:** See [MANUAL_VARIABLES_SETUP.md](./MANUAL_VARIABLES_SETUP.md) for step-by-step instructions using dashboards.
+
+**CLI Method** (requires Terraform to be set up locally):
 
 ```bash
 cd apps/api
@@ -135,6 +145,10 @@ fly secrets set ALLOWLIST_DOMAINS="example.com,another-domain.com" --app emailga
 ```
 
 #### 2.3 Vercel Environment Variables
+
+**Manual Setup:** See [MANUAL_VARIABLES_SETUP.md](./MANUAL_VARIABLES_SETUP.md) for detailed dashboard instructions.
+
+**Quick Setup:**
 
 1. Go to your Vercel project settings
 2. Navigate to Environment Variables

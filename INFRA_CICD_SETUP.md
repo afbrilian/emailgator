@@ -361,9 +361,11 @@ After configuration, test the complete flow:
 After infrastructure is set up:
 
 1. ✅ Complete [DEPLOYMENT.md](./DEPLOYMENT.md) Phase 2: Configure Secrets
-2. ✅ Deploy backend API ([DEPLOYMENT.md](./DEPLOYMENT.md) Phase 3.1)
-3. ✅ Deploy frontend (automatic via GitHub Actions)
+2. ✅ Deploy backend API ([DEPLOYMENT.md](./DEPLOYMENT.md) Phase 3.1) **FIRST** - Frontend needs API for GraphQL codegen
+3. ✅ Deploy frontend (automatic via GitHub Actions) - After API is live
 4. ✅ Verify deployment (DEPLOYMENT.md Phase 4)
+
+**Important**: Deploy backend API before frontend. The frontend runs GraphQL codegen during build, which requires the API to be accessible. If the API isn't deployed yet, the frontend will use existing generated types from the repository.
 
 ## Security Best Practices
 

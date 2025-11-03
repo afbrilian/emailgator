@@ -47,7 +47,8 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/emailgator_test
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/emailgator_test' }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE || 'dummy_secret_key_base_for_build_only_replace_in_production' }}
         run: mix test
 
   deploy:

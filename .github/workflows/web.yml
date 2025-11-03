@@ -29,15 +29,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run GraphQL codegen
+      - name: Run GraphQL codegen (if API available)
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.emailgator.com' }}
-        run: npm run codegen
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }}
+        run: |
+          if [ -n "${{ secrets.NEXT_PUBLIC_API_URL }}" ] && [ "$NEXT_PUBLIC_API_URL" != "http://localhost:4000" ]; then
+            echo "Running codegen against: $NEXT_PUBLIC_API_URL"
+            npm run codegen || echo "⚠️ Codegen failed, using existing generated files from repository"
+          else
+            echo "ℹ️  No production API URL configured, skipping codegen"
+            echo "Build will use existing generated types from repository"
+          fi
+        continue-on-error: true
 
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.emailgator.com' }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }}
           NODE_ENV: production
 
       - name: Deploy to Vercel
@@ -49,7 +57,7 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.emailgator.com' }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }}
         continue-on-error: false
 
       - name: Verify deployment

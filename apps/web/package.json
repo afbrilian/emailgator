@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npm run codegen",
     "build": "next build",
+    "build:with-codegen": "npm run codegen && npm run build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
