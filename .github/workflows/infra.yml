@@ -1,0 +1,168 @@
+name: Infrastructure CI/CD
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'infra/**'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'infra/**'
+  workflow_dispatch:
+    inputs:
+      terraform_action:
+        description: 'Terraform action to perform'
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+        default: 'plan'
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'plan')
+    
+    defaults:
+      run:
+        working-directory: infra
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          TF_WORKSPACE: default
+
+      - name: Terraform Plan
+        run: terraform plan -no-color
+        env:
+          TF_VAR_supabase_api_key: ${{ secrets.SUPABASE_API_KEY }}
+          TF_VAR_supabase_org_id: ${{ secrets.SUPABASE_ORG_ID }}
+          TF_VAR_project_name: ${{ secrets.TERRAFORM_PROJECT_NAME || 'emailgator' }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_region: ${{ secrets.TERRAFORM_REGION || 'us-east-1' }}
+          TF_VAR_plan: ${{ secrets.TERRAFORM_PLAN || 'free' }}
+        continue-on-error: false
+
+  terraform-apply:
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+    needs: []
+
+    defaults:
+      run:
+        working-directory: infra
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          TF_WORKSPACE: default
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -out=tfplan
+        env:
+          TF_VAR_supabase_api_key: ${{ secrets.SUPABASE_API_KEY }}
+          TF_VAR_supabase_org_id: ${{ secrets.SUPABASE_ORG_ID }}
+          TF_VAR_project_name: ${{ secrets.TERRAFORM_PROJECT_NAME || 'emailgator' }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_region: ${{ secrets.TERRAFORM_REGION || 'us-east-1' }}
+          TF_VAR_plan: ${{ secrets.TERRAFORM_PLAN || 'free' }}
+        continue-on-error: false
+
+      - name: Terraform Apply
+        if: steps.plan.outcome == 'success'
+        run: terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_supabase_api_key: ${{ secrets.SUPABASE_API_KEY }}
+          TF_VAR_supabase_org_id: ${{ secrets.SUPABASE_ORG_ID }}
+          TF_VAR_project_name: ${{ secrets.TERRAFORM_PROJECT_NAME || 'emailgator' }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_region: ${{ secrets.TERRAFORM_REGION || 'us-east-1' }}
+          TF_VAR_plan: ${{ secrets.TERRAFORM_PLAN || 'free' }}
+        continue-on-error: false
+
+      - name: Get Database URL
+        id: outputs
+        if: steps.plan.outcome == 'success'
+        run: |
+          DATABASE_URL=$(terraform output -raw database_url)
+          echo "::notice::Database provisioned successfully"
+          echo "DATABASE_URL obtained (hidden for security)"
+          # Note: We don't set this as a Fly.io secret automatically
+          # as it requires Fly.io CLI and additional permissions
+          # Output it for manual configuration or set up a separate job
+        env:
+          TF_VAR_supabase_api_key: ${{ secrets.SUPABASE_API_KEY }}
+          TF_VAR_supabase_org_id: ${{ secrets.SUPABASE_ORG_ID }}
+          TF_VAR_project_name: ${{ secrets.TERRAFORM_PROJECT_NAME || 'emailgator' }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_region: ${{ secrets.TERRAFORM_REGION || 'us-east-1' }}
+          TF_VAR_plan: ${{ secrets.TERRAFORM_PLAN || 'free' }}
+        continue-on-error: false
+
+      - name: Deployment Success
+        if: steps.plan.outcome == 'success'
+        run: |
+          echo "✅ Infrastructure deployed successfully"
+          echo "::notice::Terraform apply completed. Update Fly.io secrets with the new DATABASE_URL."
+
+  terraform-destroy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'destroy'
+    environment: production  # Requires explicit approval for destroy
+
+    defaults:
+      run:
+        working-directory: infra
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          TF_WORKSPACE: default
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        env:
+          TF_VAR_supabase_api_key: ${{ secrets.SUPABASE_API_KEY }}
+          TF_VAR_supabase_org_id: ${{ secrets.SUPABASE_ORG_ID }}
+          TF_VAR_project_name: ${{ secrets.TERRAFORM_PROJECT_NAME || 'emailgator' }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_region: ${{ secrets.TERRAFORM_REGION || 'us-east-1' }}
+          TF_VAR_plan: ${{ secrets.TERRAFORM_PLAN || 'free' }}
+        continue-on-error: false
+
+      - name: Destroy Success
+        run: |
+          echo "⚠️ Infrastructure destroyed successfully"
+          echo "::warning::All resources have been deleted."
+

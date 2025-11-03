@@ -55,6 +55,7 @@ Thumbs.db
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
+infra/terraform.tfvars
 
 # Logs
 *.log

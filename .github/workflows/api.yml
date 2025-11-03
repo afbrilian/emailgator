@@ -83,13 +83,28 @@ jobs:
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only
+        run: |
+          echo "🚀 Deploying backend to Fly.io..."
+          flyctl deploy --remote-only
+          if [ $? -ne 0 ]; then
+            echo "::error::Backend deployment failed. Check Fly.io logs for details."
+            exit 1
+          fi
+          echo "✅ Backend deployed successfully"
+        continue-on-error: false
 
       - name: Run database migrations
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
+          echo "🔄 Running database migrations..."
           flyctl ssh console --app emailgator-api -C "/app/bin/emailgator_api eval \"Emailgator.Release.migrate()\""
+          if [ $? -ne 0 ]; then
+            echo "::error::Database migration failed. Check logs for details."
+            exit 1
+          fi
+          echo "✅ Migrations completed successfully"
+        continue-on-error: false
 
       - name: Health check
         env:
@@ -104,12 +119,14 @@ jobs:
           echo "Checking health at: $APP_URL/health"
           for i in {1..10}; do
             if curl -f -s "$APP_URL/health" > /dev/null; then
-              echo "? Health check passed"
+              echo "✅ Health check passed"
               exit 0
             fi
-            echo "? Waiting for service to be ready (attempt $i/10)..."
+            echo "⏳ Waiting for service to be ready (attempt $i/10)..."
             sleep 10
           done
-          echo "? Health check failed after 10 attempts"
+          echo "❌ Health check failed after 10 attempts"
+          echo "::error::Backend health check failed. Check Fly.io logs for details."
           exit 1
+        continue-on-error: false
 
