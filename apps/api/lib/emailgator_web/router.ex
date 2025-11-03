@@ -11,6 +11,9 @@ defmodule EmailgatorWeb.Router do
     Plug.Conn.fetch_session(conn)
   end
 
+  # Health check endpoint (no auth required) - must be before other routes
+  get("/health", EmailgatorWeb.FallbackController, :health)
+
   scope "/api" do
     pipe_through(:api)
 
@@ -42,7 +45,4 @@ defmodule EmailgatorWeb.Router do
     get("/connect", GmailController, :connect)
     get("/callback", GmailController, :callback)
   end
-
-  # Health check endpoint (no auth required)
-  get("/health", EmailgatorWeb.FallbackController, :health)
 end
