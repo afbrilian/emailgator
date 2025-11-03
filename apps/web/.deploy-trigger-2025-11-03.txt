@@ -1,0 +1,2 @@
+trigger: deploy web on 2025-11-03
+
