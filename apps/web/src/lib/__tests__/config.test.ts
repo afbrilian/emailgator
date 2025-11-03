@@ -16,4 +16,3 @@ describe('config', () => {
     expect(result).toBe(`${API_URL}/test/path`)
   })
 })
-

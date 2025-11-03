@@ -104,15 +104,11 @@ export default function CategoryList() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map(
-              (category: {
-                id: string
-                name: string
-                description?: string
-                emailCount?: number
-              }) => (
+            {categories
+              .filter((category): category is NonNullable<typeof category> => !!category)
+              .map(category => (
                 <div
-                  key={category.id}
+                  key={category.id || ''}
                   className="card p-6 hover:shadow-lg transition-all duration-200 group"
                 >
                   <div className="flex items-start justify-between mb-4">
@@ -133,7 +129,7 @@ export default function CategoryList() {
                     </div>
                     <div className="flex gap-2">
                       <Link
-                        href={`/categories/${category.id}`}
+                        href={`/categories/${category.id || ''}`}
                         className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                         title="View category"
                       >
@@ -154,11 +150,11 @@ export default function CategoryList() {
                     </div>
                   </div>
                   <Link
-                    href={`/categories/${category.id}`}
+                    href={`/categories/${category.id || ''}`}
                     className="block group-hover:text-[#FF385C] transition-colors"
                   >
                     <h3 className="text-xl font-semibold mb-2 text-gray-900 group-hover:text-[#FF385C] transition-colors">
-                      {category.name}
+                      {category.name || ''}
                     </h3>
                   </Link>
                   {category.description && (
@@ -168,21 +164,20 @@ export default function CategoryList() {
                   )}
                   <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
                     <Link
-                      href={`/categories/${category.id}`}
+                      href={`/categories/${category.id || ''}`}
                       className="text-sm font-medium text-[#FF385C] hover:text-[#E61E4D] transition-colors"
                     >
                       View Emails →
                     </Link>
                     <button
-                      onClick={() => handleDelete(category.id)}
+                      onClick={() => handleDelete(category.id || '')}
                       className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors ml-auto"
                     >
                       Delete
                     </button>
                   </div>
                 </div>
-              )
-            )}
+              ))}
           </div>
         )}
       </section>

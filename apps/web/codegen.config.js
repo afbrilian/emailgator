@@ -10,11 +10,16 @@ module.exports = {
   generates: {
     'src/gql/': {
       preset: 'client',
-      plugins: ['typescript', 'typescript-react-apollo'],
       config: {
         withHooks: true,
-        withComponent: false,
+      },
+    },
+    'src/gql/graphql-hooks.ts': {
+      plugins: ['typescript', 'typescript-operations', 'typescript-react-apollo'],
+      config: {
+        withHooks: true,
         withHOC: false,
+        withComponent: false,
       },
     },
   },

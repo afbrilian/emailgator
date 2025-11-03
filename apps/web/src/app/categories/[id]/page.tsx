@@ -62,9 +62,7 @@ function CategoryDetailPageContent() {
       })
 
       // Check if the mutation was successful (jobs were queued)
-      const allSuccessful = result.data?.unsubscribeEmails?.every(
-        (r: { success: boolean }) => r.success
-      )
+      const allSuccessful = result.data?.unsubscribeEmails?.every(r => r?.success === true)
 
       if (allSuccessful) {
         // Don't clear selection immediately - keep showing "unsubscribing" state
@@ -77,8 +75,7 @@ function CategoryDetailPageContent() {
             // Check if all selected emails are now unsubscribed
             const unsubscribedCount =
               refetchData?.categoryEmails?.filter(
-                (email: { id: string; isUnsubscribed?: boolean }) =>
-                  selectedEmails.includes(email.id) && email.isUnsubscribed
+                email => email?.id && selectedEmails.includes(email.id) && email.isUnsubscribed
               ).length || 0
 
             // If all are unsubscribed, clear selection and stop polling
@@ -169,7 +166,9 @@ function CategoryDetailPageContent() {
 
     // Filter out unsubscribed emails when selecting all
     const subscribableEmails = emails
-      .filter((e: { isUnsubscribed?: boolean; id: string }) => !e.isUnsubscribed)
+      .filter(
+        (e): e is NonNullable<typeof e> & { id: string } => !!e && !e.isUnsubscribed && !!e.id
+      )
       .map(e => e.id)
 
     if (selectedEmails.length === subscribableEmails.length) {
@@ -183,7 +182,7 @@ function CategoryDetailPageContent() {
     // Don't allow selecting/deselecting while unsubscribe is in progress
     if (unsubscribeLoading) return
 
-    const email = emails.find((e: { id: string; isUnsubscribed?: boolean }) => e.id === emailId)
+    const email = emails.find(e => e?.id === emailId)
     // Don't allow selecting unsubscribed emails
     if (email?.isUnsubscribed) return
 
@@ -252,18 +251,14 @@ function CategoryDetailPageContent() {
                 disabled={
                   unsubscribeLoading ||
                   !selectedEmails.some(emailId => {
-                    const email = emails.find(
-                      (e: { id: string; unsubscribeUrls?: string[] | null }) => e.id === emailId
-                    )
+                    const email = emails.find(e => e?.id === emailId)
                     return email?.unsubscribeUrls && email.unsubscribeUrls.length > 0
                   })
                 }
                 className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 title={
                   !selectedEmails.some(emailId => {
-                    const email = emails.find(
-                      (e: { id: string; unsubscribeUrls?: string[] | null }) => e.id === emailId
-                    )
+                    const email = emails.find(e => e?.id === emailId)
                     return email?.unsubscribeUrls && email.unsubscribeUrls.length > 0
                   })
                     ? 'Selected emails have no unsubscribe URLs'
@@ -339,10 +334,8 @@ function CategoryDetailPageContent() {
                   type="checkbox"
                   checked={
                     emails.length > 0 &&
-                    selectedEmails.length ===
-                      emails.filter((e: { isUnsubscribed?: boolean }) => !e.isUnsubscribed)
-                        .length &&
-                    emails.filter((e: { isUnsubscribed?: boolean }) => !e.isUnsubscribed).length > 0
+                    selectedEmails.length === emails.filter(e => !e?.isUnsubscribed).length &&
+                    emails.filter(e => !e?.isUnsubscribed).length > 0
                   }
                   onChange={handleSelectAll}
                   disabled={unsubscribeLoading}
@@ -351,14 +344,10 @@ function CategoryDetailPageContent() {
                   }`}
                 />
                 <span className="text-gray-700 font-medium group-hover:text-gray-900">
-                  Select all{' '}
-                  {emails.filter((e: { isUnsubscribed?: boolean }) => !e.isUnsubscribed).length}{' '}
-                  subscribable emails
-                  {emails.filter((e: { isUnsubscribed?: boolean }) => e.isUnsubscribed).length >
-                    0 && (
+                  Select all {emails.filter(e => !e?.isUnsubscribed).length} subscribable emails
+                  {emails.filter(e => e?.isUnsubscribed).length > 0 && (
                     <span className="text-gray-500 text-sm ml-2">
-                      ({emails.filter((e: { isUnsubscribed?: boolean }) => e.isUnsubscribed).length}{' '}
-                      already unsubscribed)
+                      ({emails.filter(e => e?.isUnsubscribed).length} already unsubscribed)
                     </span>
                   )}
                 </span>
@@ -366,27 +355,18 @@ function CategoryDetailPageContent() {
             </div>
 
             <div className="space-y-4">
-              {emails.map(
-                (email: {
-                  id: string
-                  isUnsubscribed?: boolean
-                  unsubscribeUrls?: string[] | null
-                  subject?: string
-                  from?: string
-                  snippet?: string
-                  summary?: string
-                  insertedAt?: string
-                  archivedAt?: string
-                }) => {
+              {emails
+                .filter((email): email is NonNullable<typeof email> => !!email)
+                .map(email => {
                   const isUnsubscribed = email.isUnsubscribed || false
-                  const isSelected = selectedEmails.includes(email.id)
+                  const isSelected = selectedEmails.includes(email.id || '')
                   const isUnsubscribing = unsubscribeLoading && isSelected
                   const hasUnsubscribeUrl =
                     email.unsubscribeUrls && email.unsubscribeUrls.length > 0
 
                   return (
                     <div
-                      key={email.id}
+                      key={email.id || ''}
                       className={`card p-6 transition-all duration-200 relative ${
                         isSelected ? 'ring-2 ring-[#FF385C] shadow-md' : 'hover:shadow-md'
                       } ${isUnsubscribed ? 'opacity-75' : ''} ${
@@ -419,7 +399,7 @@ function CategoryDetailPageContent() {
                         <input
                           type="checkbox"
                           checked={isSelected || isUnsubscribing}
-                          onChange={() => handleToggleEmail(email.id)}
+                          onChange={() => handleToggleEmail(email.id || '')}
                           onClick={e => e.stopPropagation()}
                           disabled={isUnsubscribed || isUnsubscribing || !hasUnsubscribeUrl}
                           className={`w-5 h-5 rounded border-gray-300 text-[#FF385C] focus:ring-[#FF385C] mt-1 ${
@@ -430,7 +410,7 @@ function CategoryDetailPageContent() {
                           title={!hasUnsubscribeUrl ? 'No unsubscribe URL found' : undefined}
                         />
                         <Link
-                          href={`/emails/${email.id}`}
+                          href={`/emails/${email.id || ''}`}
                           className={`flex-1 transition-opacity ${
                             isUnsubscribing
                               ? 'pointer-events-none cursor-not-allowed'
@@ -525,8 +505,7 @@ function CategoryDetailPageContent() {
                       </div>
                     </div>
                   )
-                }
-              )}
+                })}
             </div>
           </>
         )}

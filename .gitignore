@@ -63,3 +63,4 @@ infra/terraform.tfvars
 *.db
 *.sqlite
 
+.vercel

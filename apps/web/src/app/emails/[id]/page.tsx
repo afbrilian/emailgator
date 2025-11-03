@@ -1,8 +1,8 @@
 'use client'
 
 import { useMutation } from '@apollo/client'
-import { useGetEmailQuery, GetEmailDocument } from '@/gql/graphql'
-import { UnsubscribeEmailsDocument, DeleteEmailsDocument } from '@/gql'
+import { useGetEmailQuery } from '@/gql'
+import { UnsubscribeEmailsDocument, DeleteEmailsDocument, GetEmailDocument } from '@/gql'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -36,7 +36,6 @@ function EmailDetailPageContent() {
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const email = data?.email
-  // @ts-expect-error - isUnsubscribed field exists but types may not be generated yet
   const isUnsubscribed = (email as { isUnsubscribed?: boolean })?.isUnsubscribed || false
 
   // Cleanup polling on unmount or when unsubscribed
@@ -69,7 +68,7 @@ function EmailDetailPageContent() {
 
     try {
       const result = await unsubscribeEmail({
-        variables: { emailIds: [email.id] },
+        variables: { emailIds: [email.id || ''] },
       })
 
       const unsubscribeResult = result.data?.unsubscribeEmails?.[0]
@@ -81,7 +80,6 @@ function EmailDetailPageContent() {
         const { data: refetchData } = await refetch()
 
         // Check if already unsubscribed after immediate refetch
-        // @ts-expect-error - isUnsubscribed field exists but types may not be generated yet
         const alreadyUnsubscribed = (refetchData?.email as { isUnsubscribed?: boolean })
           ?.isUnsubscribed
 
@@ -89,7 +87,6 @@ function EmailDetailPageContent() {
         if (!alreadyUnsubscribed) {
           pollIntervalRef.current = setInterval(async () => {
             const { data: pollData } = await refetch()
-            // @ts-expect-error - isUnsubscribed field exists but types may not be generated yet
             if ((pollData?.email as { isUnsubscribed?: boolean })?.isUnsubscribed) {
               if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current)
@@ -128,10 +125,10 @@ function EmailDetailPageContent() {
 
     try {
       await deleteEmail({
-        variables: { emailIds: [email.id] },
+        variables: { emailIds: [email.id || ''] },
       })
       // Navigate back to the category page or dashboard
-      if (email.category) {
+      if (email.category?.id) {
         router.push(`/categories/${email.category.id}`)
       } else {
         router.push('/dashboard')
@@ -184,7 +181,6 @@ function EmailDetailPageContent() {
   }
 
   const hasBodyContent = email.bodyHtml || email.bodyText
-  // @ts-expect-error - unsubscribeUrls field exists but types may not be generated yet
   const hasUnsubscribeUrl =
     (email as { unsubscribeUrls?: string[] | null })?.unsubscribeUrls &&
     (email as { unsubscribeUrls?: string[] | null }).unsubscribeUrls!.length > 0
@@ -352,7 +348,7 @@ function EmailDetailPageContent() {
                 Unsubscribed
               </span>
             )}
-            {email.category && (
+            {email.category?.name && (
               <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-[#FF385C] bg-opacity-10 text-[#FF385C]">
                 {email.category.name}
               </span>
@@ -407,7 +403,6 @@ function EmailDetailPageContent() {
         </div>
 
         {/* Unsubscribe Attempts History */}
-        {/* @ts-expect-error - unsubscribeAttempts field exists but types may not be generated yet */}
         {(() => {
           const emailWithAttempts = email as {
             unsubscribeAttempts?: Array<{
@@ -415,7 +410,11 @@ function EmailDetailPageContent() {
               status: string
               method: string
               url?: string
-              evidence?: unknown
+              evidence?: {
+                error?: string
+                status?: string
+                actions?: string[]
+              }
               insertedAt?: string
               updatedAt?: string
             }>
@@ -431,7 +430,11 @@ function EmailDetailPageContent() {
                     status: string
                     method: string
                     url?: string
-                    evidence?: unknown
+                    evidence?: {
+                      error?: string
+                      status?: string
+                      actions?: string[]
+                    }
                     insertedAt?: string
                     updatedAt?: string
                   }) => (
@@ -513,7 +516,7 @@ function EmailDetailPageContent() {
                           </a>
                         </div>
                       )}
-                      {attempt.evidence && typeof attempt.evidence === 'object' && (
+                      {attempt.evidence && (
                         <div className="text-sm text-gray-700">
                           {attempt.evidence.error && (
                             <div className="mt-2">

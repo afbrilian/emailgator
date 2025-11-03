@@ -1,27 +1,13 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter, useSearchParams } from 'next/navigation'
 import { PublicRoute } from '@/lib/auth'
 import { API_ENDPOINTS } from '@/lib/config'
 import emailgatorLogo from '@/images/emailgator-logo.png'
 
-function HomePage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-
-  useEffect(() => {
-    // Check for OAuth callback success
-    // Let PublicRoute handle the redirect - it will check auth status properly
-    // This avoids race conditions with cookie setting
-    if (searchParams?.get('auth') === 'success' || searchParams?.get('gmail') === 'connected') {
-      // Small delay to ensure cookies are set, then let PublicRoute redirect
-      // The PublicRoute will detect authentication and redirect to dashboard
-    }
-  }, [searchParams, router])
-
+function HomePageContent() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white">
       {/* Navigation */}
@@ -166,8 +152,19 @@ function HomePage() {
 
 export default function Home() {
   return (
-    <PublicRoute>
-      <HomePage />
-    </PublicRoute>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF385C] mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <PublicRoute>
+        <HomePageContent />
+      </PublicRoute>
+    </Suspense>
   )
 }

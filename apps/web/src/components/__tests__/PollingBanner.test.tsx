@@ -21,4 +21,3 @@ describe('PollingBanner', () => {
     expect(container.firstChild).toBeNull()
   })
 })
-

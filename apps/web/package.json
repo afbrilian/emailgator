@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npm run codegen",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -13,7 +12,7 @@
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "codegen": "graphql-codegen --config codegen.config.js",
     "codegen:fix": "npm run codegen && node scripts/fix-codegen-duplicates.js",
-    "postcodegen": "node scripts/fix-codegen-duplicates.js",
+    "_postcodegen": "node scripts/fix-codegen-duplicates.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },

@@ -42,7 +42,7 @@ export default function CategoryForm({ category }: CategoryFormProps) {
       if (category) {
         await updateCategory({
           variables: {
-            id: category.id,
+            id: category.id || '',
             name: name.trim(),
             description: description.trim() || null,
           },

@@ -40,7 +40,32 @@ const filteredLines = lines.filter((line, index) => {
   return true;
 });
 
-if (removedCount === 0) {
+// Check for duplicate Scalars block (codegen bug that duplicates entire type definitions)
+const scalarsPattern = /^export type Scalars =/;
+const scalarsLines = [];
+let firstScalarsIndex = -1;
+let secondScalarsIndex = -1;
+let inScalarsBlock = false;
+
+lines.forEach((line, index) => {
+  if (scalarsPattern.test(line)) {
+    if (firstScalarsIndex === -1) {
+      firstScalarsIndex = index;
+      inScalarsBlock = true;
+    } else if (secondScalarsIndex === -1) {
+      secondScalarsIndex = index;
+      inScalarsBlock = true;
+    }
+  }
+});
+
+// If we found a duplicate Scalars block, remove everything from second occurrence onwards
+if (secondScalarsIndex !== -1) {
+  console.log(`  ✂️  Removing duplicate type definitions starting at line ${secondScalarsIndex + 1}`);
+  const cleanedLines = lines.slice(0, secondScalarsIndex);
+  fs.writeFileSync(graphqlFile, cleanedLines.join('\n'), 'utf8');
+  console.log(`✅ Removed ${lines.length - cleanedLines.length} duplicate type definition lines`);
+} else if (removedCount === 0) {
   console.log('✅ No duplicates found (or already fixed)');
 } else {
   fs.writeFileSync(graphqlFile, filteredLines.join('\n'), 'utf8');
@@ -66,6 +91,7 @@ export {
   GetAccountsDocument,
   GetConnectGmailUrlDocument,
   DisconnectAccountDocument,
+  TriggerPollDocument,
   GetCategoriesDocument,
   CreateCategoryDocument,
   UpdateCategoryDocument,
@@ -77,6 +103,7 @@ export {
   useGetAccountsQuery,
   useGetConnectGmailUrlQuery,
   useDisconnectAccountMutation,
+  useTriggerPollMutation,
   useGetCategoriesQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
