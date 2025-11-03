@@ -28,8 +28,12 @@ defmodule EmailgatorWeb.Endpoint do
         "emailgator_salt"
       ),
     encryption_salt:
-      Application.compile_env(:emailgator_api, :cookie_enc_salt, "emailgator_enc_salt")
-    # Note: same_site option removed - CORS headers handle cross-origin cookie sharing
+      Application.compile_env(:emailgator_api, :cookie_enc_salt, "emailgator_enc_salt"),
+    # In production, allow cross-site cookies for the Vercel app
+    # - SameSite=None is required for third-party requests with credentials
+    # - Secure=true is required by browsers when SameSite=None
+    same_site: if(Mix.env() == :prod, do: "None", else: "Lax"),
+    secure: Mix.env() == :prod
   )
 
   plug(EmailgatorWeb.Router)

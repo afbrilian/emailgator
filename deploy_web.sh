@@ -44,10 +44,13 @@ npm run build
 
 # Deploy to Vercel
 echo "🌐 Deploying to Vercel..."
+
+# Run Vercel from the monorepo root so it respects the project's rootDirectory (apps/web)
+REPO_ROOT="$(pwd)/.."
 if [ "$PRODUCTION" = true ]; then
-  vercel --prod --yes
+  vercel --prod --yes --cwd "$REPO_ROOT"
 else
-  vercel --yes
+  vercel --yes --cwd "$REPO_ROOT"
 fi
 
 echo "✅ Deployment completed successfully!"
