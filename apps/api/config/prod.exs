@@ -9,4 +9,3 @@ config :logger, level: :info
 # Do not include debugger and annotate Ecto queries
 config :phoenix, :stacktrace_depth, 20
 config :phoenix, :plug_init_mode, :runtime
-
