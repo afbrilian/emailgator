@@ -1,8 +1,10 @@
 # Build stage
-FROM elixir:1.17-otp-27-alpine AS build
+FROM elixir:1.17-otp-27-debian-bookworm AS build
 
 # Install build dependencies
-RUN apk add --no-cache build-base git npm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential git npm \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -32,9 +34,10 @@ FROM debian:bookworm-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
     libssl3 \
     openssl \
+    ca-certificates \
+    libncurses6 \
     bash \
     wget \
     && rm -rf /var/lib/apt/lists/*
@@ -50,6 +53,9 @@ RUN groupadd -r appgroup && \
     chown -R appuser:appgroup /app
 
 USER appuser
+
+ENV PHX_SERVER=true \
+    LANG=C.UTF-8
 
 # Expose port
 EXPOSE 4000
