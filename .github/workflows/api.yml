@@ -102,6 +102,16 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           echo "🔄 Running database migrations..."
+          # Wake up the machine if it's stopped
+          flyctl machines list --app emailgator --json | jq -r '.[] | select(.state == "stopped") | .id' | while read machine_id; do
+            if [ -n "$machine_id" ]; then
+              echo "Waking up machine: $machine_id"
+              flyctl machines start "$machine_id" --app emailgator || true
+            fi
+          done
+          # Give machine time to start
+          sleep 7
+          # Run migrations
           flyctl ssh console --app emailgator -C "/app/bin/emailgator_api eval \"Emailgator.Release.migrate()\""
           if [ $? -ne 0 ]; then
             echo "::error::Database migration failed. Check logs for details."
