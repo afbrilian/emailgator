@@ -1,5 +1,5 @@
 # Build stage
-FROM hexpm/elixir:1.17-otp-27-alpine-3.19 AS build
+FROM elixir:1.17-otp-27-alpine AS build
 
 # Install build dependencies
 RUN apk add --no-cache build-base git npm
@@ -28,7 +28,7 @@ RUN mix compile && \
     mix release
 
 # Production stage
-FROM alpine:3.19.0
+FROM alpine:3.19
 
 # Install runtime dependencies
 RUN apk add --no-cache \
