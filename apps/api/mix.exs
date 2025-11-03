@@ -62,6 +62,7 @@ defmodule EmailgatorApi.MixProject do
 
       # Monitoring (production only)
       {:sentry, "~> 9.0", only: :prod},
+      {:hackney, "~> 1.8", only: :prod},
 
       # Testing
       {:mox, "~> 1.1", only: :test},
