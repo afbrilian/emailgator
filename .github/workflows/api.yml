@@ -9,6 +9,7 @@ on:
     branches: [main, master]
     paths:
       - 'apps/api/**'
+  workflow_dispatch:
 
 jobs:
   test:
@@ -53,7 +54,10 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: |
+      github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/master' ||
+      github.event_name == 'workflow_dispatch'
 
     defaults:
       run:
