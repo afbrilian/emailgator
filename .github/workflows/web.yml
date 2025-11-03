@@ -9,10 +9,21 @@ on:
     branches: [main, master]
     paths:
       - 'apps/web/**'
+  workflow_run:
+    workflows: ["API CI/CD"]
+    types:
+      - completed
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_run' && 
+       github.event.workflow_run.conclusion == 'success' && 
+       (github.event.workflow_run.head_branch == 'main' || 
+        github.event.workflow_run.head_branch == 'master'))
 
     defaults:
       run:
@@ -20,6 +31,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,17 +44,27 @@ jobs:
 
       - name: Run GraphQL codegen
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.emailgator.com' }}
-        run: npm run codegen
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }}
+        run: |
+          if [ -n "${{ secrets.NEXT_PUBLIC_API_URL }}" ] && [ "$NEXT_PUBLIC_API_URL" != "http://localhost:4000" ]; then
+            echo "Running codegen against: $NEXT_PUBLIC_API_URL"
+            npm run codegen || echo "⚠️ Codegen failed, using existing generated files from repository"
+          else
+            echo "ℹ️  No production API URL configured, skipping codegen"
+            echo "Build will use existing generated types from repository"
+          fi
+        continue-on-error: true
 
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.emailgator.com' }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }}
           NODE_ENV: production
 
       - name: Deploy to Vercel
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        if: |
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+          (github.event_name == 'workflow_run')
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -49,11 +72,13 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.emailgator.com' }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }}
         continue-on-error: false
 
       - name: Verify deployment
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        if: |
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+          (github.event_name == 'workflow_run')
         run: |
           echo "✅ Frontend deployed to Vercel"
           echo "::notice::Frontend deployment completed. Check Vercel dashboard for URL."
