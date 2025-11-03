@@ -28,26 +28,6 @@ primary_region = "iad"
     method = "GET"
     path = "/health"
 
-[[services]]
-  protocol = "tcp"
-  internal_port = 4000
-
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-    force_https = true
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-
-  [[services.http_checks]]
-    interval = "10s"
-    timeout = "2s"
-    grace_period = "5s"
-    method = "GET"
-    path = "/health"
-
 # Secrets should be set via: fly secrets set KEY=value
 # Required secrets:
 # - DATABASE_URL
