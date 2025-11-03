@@ -42,6 +42,8 @@ defmodule EmailgatorWeb.Endpoint do
   defp cors(conn, _opts) do
     frontend_url = System.get_env("FRONTEND_URL") || "http://localhost:3000"
     origin = List.first(get_req_header(conn, "origin")) || frontend_url
+    origin_host = URI.parse(origin).host || ""
+    frontend_host = URI.parse(frontend_url).host || frontend_url
 
     # Handle OPTIONS preflight requests
     if conn.method == "OPTIONS" do
@@ -54,10 +56,11 @@ defmodule EmailgatorWeb.Endpoint do
       |> send_resp(:no_content, "")
       |> halt()
     else
-      # Allow requests from frontend URL or any origin in dev
+      # Allow requests from configured frontend, and Vercel previews (*.vercel.app)
       allowed_origin =
         cond do
-          origin == frontend_url -> frontend_url
+          origin_host == frontend_host -> origin
+          String.ends_with?(origin_host, ".vercel.app") -> origin
           Mix.env() == :dev -> origin
           true -> frontend_url
         end
@@ -66,7 +69,11 @@ defmodule EmailgatorWeb.Endpoint do
       |> put_resp_header("access-control-allow-origin", allowed_origin)
       |> put_resp_header("access-control-allow-credentials", "true")
       |> put_resp_header("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS")
-      |> put_resp_header("access-control-allow-headers", "Content-Type, Authorization")
+      |> put_resp_header(
+        "access-control-allow-headers",
+        "Content-Type, Authorization, apollo-require-preflight, x-apollo-operation-name"
+      )
+      |> put_resp_header("vary", "Origin")
     end
   end
 end
