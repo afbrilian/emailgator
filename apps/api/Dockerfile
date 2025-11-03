@@ -1,61 +1,54 @@
-# Build stage
-FROM elixir:1.17-otp-27-debian-bookworm AS build
+# --- build stage (Alpine / musl) ---
+FROM elixir:1.17-otp-27-alpine AS build
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential git npm \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache build-base git npm
 
 # Set working directory
 WORKDIR /app
 
 # Install hex and rebar
-RUN mix local.hex --force && \
-    mix local.rebar --force
+RUN mix local.hex --force && mix local.rebar --force
 
 # Copy dependency files
 COPY mix.exs mix.lock ./
 COPY config config
 
 # Install dependencies
-RUN MIX_ENV=prod mix deps.get --only prod && \
-    MIX_ENV=prod mix deps.compile
+RUN MIX_ENV=prod mix deps.get --only prod && MIX_ENV=prod mix deps.compile
 
-# Copy application code
+# Copy source code
 COPY lib lib
 COPY priv priv
+# If you have assets, also copy and build them here
+# COPY assets assets
+# RUN MIX_ENV=prod mix assets.deploy
 
-# Compile and build release
-RUN MIX_ENV=prod mix compile && \
-    MIX_ENV=prod mix release
+# Build release
+RUN MIX_ENV=prod mix compile && MIX_ENV=prod mix release
 
-# Production stage
-FROM debian:bookworm-slim
+# --- runtime stage (Alpine / musl) ---
+FROM alpine:3.20
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl3 \
+# Install runtime libs for OTP 27
+RUN apk add --no-cache \
     openssl \
-    ca-certificates \
-    libncurses6 \
+    ncurses-libs \
     bash \
     wget \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates
 
 WORKDIR /app
 
-# Copy release from build stage
-COPY --from=build /app/_build/prod/rel/emailgator_api .
+# Copy the full release
+COPY --from=build /app/_build/prod/rel/emailgator_api /app
 
-# Create a non-root user
-RUN groupadd -r appgroup && \
-    useradd -r -g appgroup appuser && \
-    chown -R appuser:appgroup /app
-
+# Non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
 USER appuser
 
-ENV PHX_SERVER=true \
-    LANG=C.UTF-8
+# Environment
+ENV PHX_SERVER=true LANG=C.UTF-8
 
 # Expose port
 EXPOSE 4000
@@ -64,6 +57,6 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1
 
-# Start the application
+# Start release
 ENTRYPOINT ["/app/bin/emailgator_api"]
 CMD ["start"]
