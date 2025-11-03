@@ -6,6 +6,7 @@
     "dev": "next dev",
     "prebuild": "npm run codegen",
     "build": "next build",
+    "postinstall": "npm run codegen",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
