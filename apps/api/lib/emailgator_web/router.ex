@@ -12,7 +12,7 @@ defmodule EmailgatorWeb.Router do
   end
 
   # Health check endpoint (no auth required) - must be before other routes
-  get("/health", EmailgatorWeb.FallbackController, :health)
+  get("/health", EmailgatorWeb.HealthController, :health)
 
   scope "/api" do
     pipe_through(:api)

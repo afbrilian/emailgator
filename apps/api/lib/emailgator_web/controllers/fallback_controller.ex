@@ -21,8 +21,4 @@ defmodule EmailgatorWeb.FallbackController do
     |> put_view(json: EmailgatorWeb.ErrorJSON)
     |> render(:"401")
   end
-
-  def health(conn, _params) do
-    json(conn, %{status: "ok", timestamp: DateTime.utc_now() |> DateTime.to_iso8601()})
-  end
 end
