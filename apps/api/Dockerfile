@@ -36,7 +36,9 @@ RUN apk add --no-cache \
     ncurses-libs \
     ca-certificates \
     bash \
-    wget
+    wget \
+    libstdc++ \
+    libgcc
 
 WORKDIR /app
 
