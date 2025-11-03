@@ -16,16 +16,16 @@ COPY mix.exs mix.lock ./
 COPY config config
 
 # Install dependencies
-RUN mix deps.get --only prod && \
-    mix deps.compile
+RUN MIX_ENV=prod mix deps.get --only prod && \
+    MIX_ENV=prod mix deps.compile
 
 # Copy application code
 COPY lib lib
 COPY priv priv
 
 # Compile and build release
-RUN mix compile && \
-    mix release
+RUN MIX_ENV=prod mix compile && \
+    MIX_ENV=prod mix release
 
 # Production stage
 FROM alpine:3.19
@@ -35,7 +35,8 @@ RUN apk add --no-cache \
     openssl \
     ncurses-libs \
     ca-certificates \
-    bash
+    bash \
+    wget
 
 WORKDIR /app
 
