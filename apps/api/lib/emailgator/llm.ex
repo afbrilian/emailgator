@@ -215,7 +215,7 @@ defmodule Emailgator.LLM do
         {:error, "Invalid response format: #{inspect(data)}"}
 
       {:error, reason} ->
-        {:error, "Failed to parse JSON: #{reason}"}
+        {:error, "Failed to parse JSON: #{inspect(reason)}"}
     end
   end
 end

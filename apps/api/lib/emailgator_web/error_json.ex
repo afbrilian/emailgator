@@ -11,13 +11,11 @@ defmodule EmailgatorWeb.ErrorJSON do
     %{error: error}
   end
 
-  def render(:"404", _assigns) do
-    %{error: "Not found"}
-  end
+  def render(:"404", _assigns), do: %{error: "Not found"}
+  def render("404.json", _assigns), do: %{error: "Not found"}
 
-  def render(:"401", _assigns) do
-    %{error: "Unauthorized"}
-  end
+  def render(:"401", _assigns), do: %{error: "Unauthorized"}
+  def render("401.json", _assigns), do: %{error: "Unauthorized"}
 
   defp translate_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, &translate_error/1)

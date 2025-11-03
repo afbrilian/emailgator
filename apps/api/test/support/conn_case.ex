@@ -11,6 +11,10 @@ defmodule EmailgatorWeb.ConnCase do
       import EmailgatorWeb.ConnCase
       import Emailgator.DataCase
       import Plug.Test
+      import Phoenix.ConnTest
+
+      # Use Phoenix.ConnTest's build_conn
+      alias Phoenix.ConnTest
     end
   end
 

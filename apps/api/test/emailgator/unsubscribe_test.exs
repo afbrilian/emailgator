@@ -2,93 +2,111 @@ defmodule Emailgator.UnsubscribeTest do
   use Emailgator.DataCase
 
   alias Emailgator.Unsubscribe
+  alias Emailgator.Unsubscribe.UnsubscribeAttempt
 
-  describe "create_attempt/1" do
-    test "creates unsubscribe attempt with valid attributes" do
-      user = create_user()
-      account = create_account(user)
-      category = create_category(user)
-      email = create_email(account, category)
+  test "create_attempt/1 creates an unsubscribe attempt" do
+    user = create_user()
+    account = create_account(user)
+    category = create_category(user)
+    email = create_email(account, category)
 
-      attrs = %{
-        email_id: email.id,
-        method: "playwright",
-        url: "https://example.com/unsubscribe",
-        status: "success"
-      }
+    attrs = %{
+      email_id: email.id,
+      method: "http",
+      url: "https://example.com/unsubscribe",
+      status: "success",
+      evidence: %{"message" => "Unsubscribed successfully"}
+    }
 
-      assert {:ok, attempt} = Unsubscribe.create_attempt(attrs)
-      assert attempt.email_id == email.id
-      assert attempt.method == "playwright"
-      assert attempt.status == "success"
-    end
-
-    test "creates failed attempt" do
-      user = create_user()
-      account = create_account(user)
-      category = create_category(user)
-      email = create_email(account, category)
-
-      attrs = %{
-        email_id: email.id,
-        method: "http",
-        url: "https://example.com/unsubscribe",
-        status: "failed",
-        evidence: %{error: "Connection timeout"}
-      }
-
-      assert {:ok, attempt} = Unsubscribe.create_attempt(attrs)
-      assert attempt.status == "failed"
-    end
+    assert {:ok, attempt} = Unsubscribe.create_attempt(attrs)
+    assert attempt.email_id == email.id
+    assert attempt.method == "http"
+    assert attempt.url == "https://example.com/unsubscribe"
+    assert attempt.status == "success"
   end
 
-  describe "list_email_attempts/1" do
-    test "returns attempts for email" do
-      user = create_user()
-      account = create_account(user)
-      category = create_category(user)
-      email = create_email(account, category)
+  test "create_attempt/1 validates required fields" do
+    attrs = %{
+      method: "http",
+      url: "https://example.com/unsubscribe"
+    }
 
-      {:ok, attempt1} =
-        Unsubscribe.create_attempt(%{
-          email_id: email.id,
-          method: "http",
-          url: "https://example.com/unsubscribe",
-          status: "failed"
-        })
+    assert {:error, changeset} = Unsubscribe.create_attempt(attrs)
+    assert %{email_id: ["can't be blank"]} = errors_on(changeset)
+  end
 
-      {:ok, attempt2} =
-        Unsubscribe.create_attempt(%{
-          email_id: email.id,
-          method: "playwright",
-          url: "https://example.com/unsubscribe",
-          status: "success"
-        })
+  test "list_email_attempts/1 returns attempts for an email" do
+    user = create_user()
+    account = create_account(user)
+    category = create_category(user)
+    email = create_email(account, category)
 
-      # Create attempt for different email
-      email2 = create_email(account, category)
-      {:ok, _attempt3} =
-        Unsubscribe.create_attempt(%{
-          email_id: email2.id,
-          method: "http",
-          url: "https://other.com/unsubscribe",
-          status: "failed"
-        })
+    # Create multiple attempts
+    Unsubscribe.create_attempt(%{
+      email_id: email.id,
+      method: "http",
+      url: "https://example.com/unsubscribe1",
+      status: "success",
+      evidence: %{}
+    })
 
-      attempts = Unsubscribe.list_email_attempts(email.id)
-      assert length(attempts) == 2
-      assert attempt1.id in Enum.map(attempts, & &1.id)
-      assert attempt2.id in Enum.map(attempts, & &1.id)
-    end
+    Unsubscribe.create_attempt(%{
+      email_id: email.id,
+      method: "playwright",
+      url: "https://example.com/unsubscribe2",
+      status: "failed",
+      evidence: %{"error" => "Failed"}
+    })
 
-    test "returns empty list when no attempts exist" do
-      user = create_user()
-      account = create_account(user)
-      category = create_category(user)
-      email = create_email(account, category)
+    attempts = Unsubscribe.list_email_attempts(email.id)
+    assert length(attempts) == 2
 
-      attempts = Unsubscribe.list_email_attempts(email.id)
-      assert attempts == []
-    end
+    # Should be ordered by inserted_at desc (most recent first)
+    # Both attempts should be present, but order depends on timing
+    urls = Enum.map(attempts, & &1.url)
+    assert "https://example.com/unsubscribe1" in urls
+    assert "https://example.com/unsubscribe2" in urls
+  end
+
+  test "list_email_attempts/1 returns empty list when no attempts" do
+    user = create_user()
+    account = create_account(user)
+    category = create_category(user)
+    email = create_email(account, category)
+
+    attempts = Unsubscribe.list_email_attempts(email.id)
+    assert attempts == []
+  end
+
+  test "list_email_attempts/1 only returns attempts for specified email" do
+    user = create_user()
+    account = create_account(user)
+    category = create_category(user)
+    email1 = create_email(account, category)
+    email2 = create_email(account, category)
+
+    Unsubscribe.create_attempt(%{
+      email_id: email1.id,
+      method: "http",
+      url: "https://example.com/unsubscribe1",
+      status: "success",
+      evidence: %{}
+    })
+
+    Unsubscribe.create_attempt(%{
+      email_id: email2.id,
+      method: "http",
+      url: "https://example.com/unsubscribe2",
+      status: "success",
+      evidence: %{}
+    })
+
+    attempts1 = Unsubscribe.list_email_attempts(email1.id)
+    attempts2 = Unsubscribe.list_email_attempts(email2.id)
+
+    assert length(attempts1) == 1
+    assert length(attempts2) == 1
+    assert List.first(attempts1).email_id == email1.id
+    assert List.first(attempts2).email_id == email2.id
   end
 end
