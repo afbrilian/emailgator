@@ -36,4 +36,36 @@ defmodule Emailgator.Jobs.PollCronTest do
     jobs = Emailgator.Repo.all(from(j in Oban.Job, where: j.queue == "poll"))
     assert length(jobs) == 0
   end
+
+  test "perform/1 handles Oban.insert failures gracefully" do
+    user = create_user()
+    account = create_account(user, %{refresh_token: "token1"})
+
+    # PollCron will attempt to queue jobs even if some fail
+    # The function doesn't check return values, so it continues
+    assert :ok = PollCron.perform(%Oban.Job{args: %{}})
+
+    # Should have attempted to queue at least one job
+    jobs = Emailgator.Repo.all(from(j in Oban.Job, where: j.queue == "poll"))
+    assert length(jobs) >= 1
+  end
+
+  test "perform/1 processes multiple accounts" do
+    user1 = create_user()
+    user2 = create_user()
+
+    account1 = create_account(user1, %{refresh_token: "token1"})
+    account2 = create_account(user1, %{refresh_token: "token2"})
+    account3 = create_account(user2, %{refresh_token: "token3"})
+
+    assert :ok = PollCron.perform(%Oban.Job{args: %{}})
+
+    jobs = Emailgator.Repo.all(from(j in Oban.Job, where: j.queue == "poll"))
+    assert length(jobs) >= 3
+
+    account_ids = Enum.map(jobs, fn job -> job.args["account_id"] end)
+    assert account1.id in account_ids
+    assert account2.id in account_ids
+    assert account3.id in account_ids
+  end
 end

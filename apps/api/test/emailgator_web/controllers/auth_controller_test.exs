@@ -2,31 +2,35 @@ defmodule EmailgatorWeb.AuthControllerTest do
   use EmailgatorWeb.ConnCase
   use ExUnit.Case
 
-  alias Emailgator.Accounts
   alias EmailgatorWeb.AuthController
 
   setup do
+    # Checkout the repo for database access
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Emailgator.Repo)
+
     # Set up test environment variables
     original_frontend_url = System.get_env("FRONTEND_URL")
     original_redirect_uri = System.get_env("GOOGLE_OAUTH_REDIRECT_URL")
 
     on_exit(fn ->
       if original_frontend_url, do: System.put_env("FRONTEND_URL", original_frontend_url)
-      if original_redirect_uri, do: System.put_env("GOOGLE_OAUTH_REDIRECT_URI", original_redirect_uri)
+
+      if original_redirect_uri,
+        do: System.put_env("GOOGLE_OAUTH_REDIRECT_URI", original_redirect_uri)
     end)
 
     System.put_env("FRONTEND_URL", "http://localhost:3000")
     System.put_env("GOOGLE_OAUTH_REDIRECT_URL", "http://localhost:4000/auth/google/callback")
 
     # Mock Assent config
-    Application.put_env(:emailgator_api, :assent, [
+    Application.put_env(:emailgator_api, :assent,
       providers: [
         google: [
           client_id: "test_client_id",
           client_secret: "test_client_secret"
         ]
       ]
-    ])
+    )
 
     :ok
   end
@@ -34,9 +38,9 @@ defmodule EmailgatorWeb.AuthControllerTest do
   describe "request/2" do
     test "handles OAuth request flow" do
       conn =
-        build_conn()
-        |> put_req_header("origin", "http://localhost:3000")
-        |> put_req_header("host", "localhost:4000")
+        Phoenix.ConnTest.build_conn()
+        |> Plug.Conn.put_req_header("origin", "http://localhost:3000")
+        |> Map.put(:host, "localhost:4000")
         |> Plug.Test.init_test_session(%{})
         |> AuthController.request(%{})
 
@@ -47,10 +51,11 @@ defmodule EmailgatorWeb.AuthControllerTest do
 
     test "returns error when OAuth initialization fails" do
       conn =
-        build_conn()
-        |> put_req_header("origin", "http://localhost:3000")
-        |> put_req_header("host", "localhost:4000")
-        |> put_req_header("scheme", "http")
+        Phoenix.ConnTest.build_conn()
+        |> Plug.Conn.put_req_header("origin", "http://localhost:3000")
+        |> Map.put(:host, "localhost:4000")
+        |> Map.put(:scheme, :http)
+        |> Plug.Test.init_test_session(%{})
         |> AuthController.request(%{})
 
       # Function should handle errors gracefully
@@ -61,8 +66,9 @@ defmodule EmailgatorWeb.AuthControllerTest do
       System.put_env("GOOGLE_OAUTH_REDIRECT_URL", "https://example.com/auth/callback")
 
       conn =
-        build_conn()
-        |> put_req_header("host", "localhost:4000")
+        Phoenix.ConnTest.build_conn()
+        |> Map.put(:host, "localhost:4000")
+        |> Plug.Test.init_test_session(%{})
         |> AuthController.request(%{})
 
       assert conn.status in [302, 500, nil] or conn.resp_body != nil
@@ -72,8 +78,9 @@ defmodule EmailgatorWeb.AuthControllerTest do
       System.delete_env("GOOGLE_OAUTH_REDIRECT_URL")
 
       conn =
-        build_conn()
-        |> put_req_header("host", "localhost:4000")
+        Phoenix.ConnTest.build_conn()
+        |> Map.put(:host, "localhost:4000")
+        |> Plug.Test.init_test_session(%{})
         |> AuthController.request(%{})
 
       assert conn.status in [302, 500, nil] or conn.resp_body != nil
@@ -87,11 +94,14 @@ defmodule EmailgatorWeb.AuthControllerTest do
       # Test callback handling - may fail due to missing OAuth setup in test env
       # but tests the code path
       conn =
-        build_conn()
-        |> put_req_header("host", "localhost:4000")
+        Phoenix.ConnTest.build_conn()
+        |> Map.put(:host, "localhost:4000")
         |> Plug.Test.init_test_session(%{})
-        |> put_session(:oauth_redirect_uri, "http://localhost:4000/auth/google/callback")
-        |> put_session(:oauth_session_params, %{state: "test_state"})
+        |> Plug.Conn.put_session(
+          :oauth_redirect_uri,
+          "http://localhost:4000/auth/google/callback"
+        )
+        |> Plug.Conn.put_session(:oauth_session_params, %{state: "test_state"})
         |> AuthController.callback(%{"code" => "auth_code_123"})
 
       assert conn.status in [302, 500, nil, 400] or conn.resp_body != nil
@@ -99,18 +109,22 @@ defmodule EmailgatorWeb.AuthControllerTest do
 
     test "handles callback with error parameters" do
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
-        |> AuthController.callback(%{"error" => "access_denied", "error_description" => "User denied access"})
+        |> AuthController.callback(%{
+          "error" => "access_denied",
+          "error_description" => "User denied access"
+        })
 
       assert conn.status == 400
+
       assert %{"error" => "access_denied", "description" => "User denied access"} =
                Jason.decode!(conn.resp_body)
     end
 
     test "handles callback without code parameter" do
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
         |> AuthController.callback(%{})
 
@@ -120,7 +134,7 @@ defmodule EmailgatorWeb.AuthControllerTest do
 
     test "handles missing session gracefully" do
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
         |> AuthController.callback(%{"code" => "auth_code_123"})
 
@@ -129,10 +143,13 @@ defmodule EmailgatorWeb.AuthControllerTest do
 
     test "handles session_params as keyword list" do
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
-        |> put_session(:oauth_redirect_uri, "http://localhost:4000/auth/google/callback")
-        |> put_session(:oauth_session_params, [state: "test_state"])
+        |> Plug.Conn.put_session(
+          :oauth_redirect_uri,
+          "http://localhost:4000/auth/google/callback"
+        )
+        |> Plug.Conn.put_session(:oauth_session_params, state: "test_state")
         |> AuthController.callback(%{"code" => "auth_code_123"})
 
       assert conn.status in [302, 500, 400, nil] or conn.resp_body != nil
@@ -140,9 +157,12 @@ defmodule EmailgatorWeb.AuthControllerTest do
 
     test "uses state from URL params when session is missing" do
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
-        |> put_session(:oauth_redirect_uri, "http://localhost:4000/auth/google/callback")
+        |> Plug.Conn.put_session(
+          :oauth_redirect_uri,
+          "http://localhost:4000/auth/google/callback"
+        )
         |> AuthController.callback(%{"code" => "auth_code_123", "state" => "url_state_123"})
 
       assert conn.status in [302, 500, 400, nil] or conn.resp_body != nil
@@ -154,24 +174,24 @@ defmodule EmailgatorWeb.AuthControllerTest do
       System.put_env("FRONTEND_URL", "http://localhost:3000")
 
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{user_id: 1, user_email: "test@example.com"})
         |> AuthController.delete(%{})
 
       assert conn.status == 302
-      assert get_resp_header(conn, "location") == ["http://localhost:3000"]
+      assert Plug.Conn.get_resp_header(conn, "location") == ["http://localhost:3000"]
     end
 
     test "uses default frontend URL when env var not set" do
       System.delete_env("FRONTEND_URL")
 
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
         |> AuthController.delete(%{})
 
       assert conn.status == 302
-      assert get_resp_header(conn, "location") == ["http://localhost:3000"]
+      assert Plug.Conn.get_resp_header(conn, "location") == ["http://localhost:3000"]
     end
   end
 

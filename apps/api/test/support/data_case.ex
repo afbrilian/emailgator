@@ -58,7 +58,7 @@ defmodule Emailgator.DataCase do
       email: email,
       refresh_token: attrs[:refresh_token] || "refresh_token_123",
       access_token: attrs[:access_token] || "access_token_123",
-      expires_at: DateTime.add(DateTime.utc_now(), 3600, :second),
+      expires_at: attrs[:expires_at] || DateTime.add(DateTime.utc_now(), 3600, :second),
       user_id: user.id
     }
 
@@ -104,5 +104,16 @@ defmodule Emailgator.DataCase do
     attrs = Map.merge(defaults, attrs)
     {:ok, email} = Emailgator.Emails.create_email(attrs)
     email
+  end
+
+  @doc """
+  Helper function to extract errors from a changeset.
+  """
+  def errors_on(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
+      Regex.replace(~r"%{(\w+)}", message, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
   end
 end

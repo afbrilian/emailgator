@@ -17,7 +17,7 @@ defmodule Mix.Tasks.CheckObanTest do
         output = ExUnit.CaptureIO.capture_io(fn -> CheckOban.run([]) end)
         assert output != nil or output == ""
       rescue
-        _ -> 
+        _ ->
           # Task might fail in test environment without Oban configured
           # This is acceptable - we're testing the code exists and is callable
           assert true

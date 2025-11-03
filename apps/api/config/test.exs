@@ -37,3 +37,11 @@ config :logger, level: :warning
 # ExCoveralls configuration
 config :excoveralls,
   tool: ExCoveralls
+
+# Oban configuration for tests - disable queues and plugins to avoid sandbox connection issues
+# This prevents Oban's background GenServers (Stager, Producers) from trying to access the database
+# Jobs can still be inserted and manually executed using Oban.Testing helpers
+config :emailgator_api, Oban,
+  queues: false,
+  plugins: false,
+  crontab: false

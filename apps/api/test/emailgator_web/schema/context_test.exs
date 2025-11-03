@@ -23,44 +23,47 @@ defmodule EmailgatorWeb.Schema.ContextTest do
       user = create_user(%{email: "test@example.com", name: "Test User"})
 
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
-        |> put_session(:user_id, user.id)
+        |> Plug.Conn.put_session(:user_id, user.id)
         |> Context.call([])
 
-      context = Absinthe.Plug.get_options(conn)[:context]
+      context = conn.private[:absinthe][:context]
       assert context[:current_user].id == user.id
       assert context[:current_user].email == user.email
     end
 
     test "sets current_user to nil when no user_id in session" do
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
         |> Context.call([])
 
-      context = Absinthe.Plug.get_options(conn)[:context]
+      context = conn.private[:absinthe][:context]
       assert context[:current_user] == nil
     end
 
     test "sets current_user to nil when user_id doesn't exist in database" do
+      # Use a valid UUID format that doesn't exist in the database
+      fake_user_id = Ecto.UUID.generate()
+
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
-        |> put_session(:user_id, 999_999)
+        |> Plug.Conn.put_session(:user_id, fake_user_id)
         |> Context.call([])
 
-      context = Absinthe.Plug.get_options(conn)[:context]
+      context = conn.private[:absinthe][:context]
       assert context[:current_user] == nil
     end
 
     test "handles session without user_id key" do
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{other_key: "value"})
         |> Context.call([])
 
-      context = Absinthe.Plug.get_options(conn)[:context]
+      context = conn.private[:absinthe][:context]
       assert context[:current_user] == nil
     end
 
@@ -68,12 +71,12 @@ defmodule EmailgatorWeb.Schema.ContextTest do
       user = create_user(%{email: "test@example.com", name: "Test User"})
 
       conn =
-        build_conn()
+        Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})
-        |> put_session(:user_id, user.id)
+        |> Plug.Conn.put_session(:user_id, user.id)
         |> Context.call([])
 
-      context = Absinthe.Plug.get_options(conn)[:context]
+      context = conn.private[:absinthe][:context]
       retrieved_user = context[:current_user]
       assert retrieved_user != nil
       assert retrieved_user.id == user.id
