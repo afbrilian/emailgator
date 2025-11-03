@@ -14,8 +14,9 @@ defmodule EmailgatorWeb.GmailController do
       |> put_status(:unauthorized)
       |> json(%{error: "Not authenticated"})
     else
-      base_url = base_url(conn)
-      redirect_uri = "#{base_url}/gmail/callback"
+      # Build redirect_uri from configured public endpoint URL
+      public_base = public_base_url()
+      redirect_uri = "#{public_base}/gmail/callback"
       config = build_gmail_config(redirect_uri)
 
       require Logger
@@ -75,7 +76,8 @@ defmodule EmailgatorWeb.GmailController do
       |> json(%{error: "Session expired"})
     else
       # Use the EXACT redirect_uri from the initial request (stored in session)
-      redirect_uri = get_session(conn, :gmail_redirect_uri) || "#{base_url(conn)}/gmail/callback"
+      redirect_uri =
+        get_session(conn, :gmail_redirect_uri) || "#{public_base_url()}/gmail/callback"
 
       Logger.info(
         "🔍 Gmail Callback - redirect_uri from session: #{inspect(get_session(conn, :gmail_redirect_uri))}"
@@ -245,10 +247,23 @@ defmodule EmailgatorWeb.GmailController do
     |> json(%{error: "Missing code parameter"})
   end
 
-  defp base_url(conn) do
-    scheme = if conn.scheme == :https, do: "https", else: "http"
-    port_str = if conn.port == 80 or conn.port == 443, do: "", else: ":#{conn.port}"
-    "#{scheme}://#{conn.host}#{port_str}"
+  defp public_base_url do
+    endpoint_url =
+      Application.get_env(:emailgator_api, EmailgatorWeb.Endpoint, []) |> Keyword.get(:url, [])
+
+    scheme = Keyword.get(endpoint_url, :scheme, "http")
+    raw_host = Keyword.get(endpoint_url, :host, "localhost")
+
+    host =
+      raw_host
+      |> to_string()
+      |> String.replace(~r/^https?:\/\//, "")
+      |> String.trim_leading("/")
+
+    port = Keyword.get(endpoint_url, :port, 4000)
+    port_part = if port in [80, 443], do: "", else: ":#{port}"
+
+    "#{scheme}://#{host}#{port_part}"
   end
 
   defp build_gmail_config(redirect_uri) do
